@@ -128,8 +128,8 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
               TextFormField(
                 controller: _amountController,
                 decoration: const InputDecoration(
-                  labelText: 'Montant (USD)',
-                  prefixIcon: Icon(Icons.attach_money),
+                  labelText: 'Montant (CDF)',
+                  prefixIcon: Icon(Icons.money),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (v) => double.tryParse(v ?? '') == null ? 'Montant invalide' : null,

@@ -35,12 +35,12 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.school, size: 80, color: AppColors.primary),
+                Image.asset('assets/logo.png', height: 120),
                 const SizedBox(height: 24),
                 const Text(
-                  'Bienvenue',
+                  'Bienvenue à l\'ISP / Lubumbashi',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
                 const Text(
                   'Gestion des Frais Académiques',

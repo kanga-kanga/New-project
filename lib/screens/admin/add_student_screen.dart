@@ -13,20 +13,22 @@ class AddStudentScreen extends StatefulWidget {
 
 class _AddStudentScreenState extends State<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _nomController = TextEditingController();
+  final _postnomController = TextEditingController();
+  final _prenomController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _matriculeController = TextEditingController();
   final _programController = TextEditingController();
   final _levelController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _nomController.dispose();
+    _postnomController.dispose();
+    _prenomController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _matriculeController.dispose();
     _programController.dispose();
     _levelController.dispose();
     super.dispose();
@@ -38,10 +40,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     setState(() => _isLoading = true);
     try {
       await widget.database.createStudent(
-        fullName: _nameController.text,
+        fullName: '${_nomController.text} ${_postnomController.text} ${_prenomController.text}'.trim(),
         email: _emailController.text,
         password: _passwordController.text,
-        matricule: _matriculeController.text,
+        matricule: '', // non utilisé
         program: _programController.text,
         level: _levelController.text,
       );
@@ -74,10 +76,28 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
-                controller: _nameController,
+                controller: _nomController,
                 decoration: const InputDecoration(
-                  labelText: 'Nom Complet',
+                  labelText: 'Nom',
                   prefixIcon: Icon(Icons.person),
+                ),
+                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _postnomController,
+                decoration: const InputDecoration(
+                  labelText: 'Postnom',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _prenomController,
+                decoration: const InputDecoration(
+                  labelText: 'Prénom',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
               ),
@@ -101,15 +121,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 obscureText: true,
                 validator: (v) => (v?.length ?? 0) < 6 ? 'Min 6 caractères' : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _matriculeController,
-                decoration: const InputDecoration(
-                  labelText: 'Matricule',
-                  prefixIcon: Icon(Icons.badge),
-                ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-              ),
+
               const SizedBox(height: 16),
               TextFormField(
                 controller: _programController,

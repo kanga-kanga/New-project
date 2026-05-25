@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import '../models/user.dart';
 import '../models/fee.dart';
 import '../models/payment.dart';
@@ -10,10 +12,7 @@ class AppDatabase {
   Database? _db;
 
   Future<void> init() async {
-    final databasePath = await getDatabasesPath();
-    final path = p.join(databasePath, 'academic_fees.db');
-    _db = await openDatabase(
-      path,
+    final options = OpenDatabaseOptions(
       version: 2,
       onCreate: (db, version) async {
         await db.execute('''
@@ -61,6 +60,20 @@ class AppDatabase {
         }
       },
     );
+
+    if (kIsWeb) {
+      databaseFactory = databaseFactoryFfiWeb;
+      _db = await databaseFactory.openDatabase('academic_fees.db', options: options);
+    } else {
+      final databasePath = await getDatabasesPath();
+      final path = p.join(databasePath, 'academic_fees.db');
+      _db = await openDatabase(
+        path,
+        version: options.version,
+        onCreate: options.onCreate,
+        onUpgrade: options.onUpgrade,
+      );
+    }
   }
 
   Database get db {

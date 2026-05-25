@@ -101,7 +101,10 @@ class _StudentHomeState extends State<StudentHome> {
                     message: 'Vos paiements apparaîtront ici.',
                   )
                 else
-                  ...data.payments.map((p) => _PaymentTile(payment: p, student: widget.user)),
+                  ...data.payments.map((p) {
+                    final feeTitle = data.fees.firstWhere((f) => f.id == p.feeId).title;
+                    return _PaymentTile(payment: p, student: widget.user, feeTitle: feeTitle);
+                  }),
               ],
             ),
           );
@@ -210,8 +213,9 @@ class _FeeTile extends StatelessWidget {
 class _PaymentTile extends StatelessWidget {
   final Payment payment;
   final User student;
+  final String feeTitle;
 
-  const _PaymentTile({required this.payment, required this.student});
+  const _PaymentTile({required this.payment, required this.student, required this.feeTitle});
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +239,7 @@ class _PaymentTile extends StatelessWidget {
               builder: (context) => ReceiptScreen(
                 payment: payment,
                 student: student,
-                feeTitle: "Paiement de Frais",
+                feeTitle: feeTitle,
               ),
             ),
           );

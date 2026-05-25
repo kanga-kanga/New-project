@@ -62,9 +62,9 @@ class AppTheme {
 
 String formatMoney(double amount) {
   return NumberFormat.currency(
-    symbol: 'USD ',
+    symbol: 'CDF ',
     decimalDigits: 2,
-    locale: 'en_US',
+    locale: 'fr_CD',
   ).format(amount);
 }
 
