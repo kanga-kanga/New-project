@@ -35,11 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: Image.asset(
-                'assets/logo.png',
-                width: 120,
-                height: 120,
-              ),
+              child: Image.asset('assets/logo.png', width: 120, height: 120),
             ),
             const SizedBox(height: 32),
             const Text(

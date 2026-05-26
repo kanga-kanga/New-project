@@ -23,6 +23,8 @@ class User {
     required this.email,
     required this.password,
     required this.role,
+    required this.registrationCompleted,
+    this.gender,
     this.matricule,
     this.program,
     this.level,
@@ -33,9 +35,36 @@ class User {
   final String email;
   final String password;
   final UserRole role;
+  final bool registrationCompleted;
+  final String? gender;
   final String? matricule;
   final String? program;
   final String? level;
+
+  bool get hasCompletedRegistration => registrationCompleted;
+
+  String get classLabel {
+    final value = level?.trim() ?? '';
+    return value.isEmpty ? 'Classe non definie' : value;
+  }
+
+  String get promotionLabel {
+    final value = level?.trim() ?? '';
+    return value.isEmpty ? 'Promotion non definie' : value;
+  }
+
+  String get departmentLabel {
+    final value = program?.trim() ?? '';
+    return value.isEmpty ? 'Filiere non definie' : value;
+  }
+
+  String get genderLabel {
+    final value = gender?.trim().toUpperCase() ?? '';
+    if (value == 'M' || value == 'F') {
+      return value;
+    }
+    return 'Non precise';
+  }
 
   factory User.fromMap(Map<String, Object?> map) {
     return User(
@@ -48,6 +77,9 @@ class User {
         'administration' => UserRole.administration,
         _ => UserRole.student,
       },
+      registrationCompleted:
+          ((map['registration_completed'] as int?) ?? 1) == 1,
+      gender: map['gender'] as String?,
       matricule: map['matricule'] as String?,
       program: map['program'] as String?,
       level: map['level'] as String?,
@@ -61,6 +93,8 @@ class User {
       'email': email,
       'password': password,
       'role': roleToDatabaseValue(role),
+      'registration_completed': registrationCompleted ? 1 : 0,
+      'gender': gender,
       'matricule': matricule,
       'program': program,
       'level': level,

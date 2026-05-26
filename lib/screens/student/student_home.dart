@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+
 import '../../database/app_database.dart';
-import '../../models/user.dart';
 import '../../models/fee.dart';
 import '../../models/payment.dart';
+import '../../models/user.dart';
 import '../../widgets/common_widgets.dart';
 import 'payment_simulation.dart';
 import 'receipt_screen.dart';
 
 class StudentHome extends StatefulWidget {
-  final AppDatabase database;
-  final User user;
-  final VoidCallback onLogout;
-
   const StudentHome({
     super.key,
     required this.database,
     required this.user,
     required this.onLogout,
   });
+
+  final AppDatabase database;
+  final User user;
+  final VoidCallback onLogout;
 
   @override
   State<StudentHome> createState() => _StudentHomeState();
@@ -52,7 +53,10 @@ class _StudentHomeState extends State<StudentHome> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Espace Etudiant', style: TextStyle(fontSize: 14)),
-            Text(widget.user.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              widget.user.fullName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         actions: [
@@ -65,9 +69,11 @@ class _StudentHomeState extends State<StudentHome> {
       body: FutureBuilder<_StudentData>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final data = snapshot.data!;
-          
+
           final total = data.fees.fold<double>(0, (s, f) => s + f.amount);
           final paid = data.payments.fold<double>(0, (s, p) => s + p.amount);
           final percentage = total > 0 ? (paid / total) : 0.0;
@@ -79,31 +85,47 @@ class _StudentHomeState extends State<StudentHome> {
               padding: const EdgeInsets.all(16),
               children: [
                 _buildProgressCard(percentage, paid, total),
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.badge_outlined),
+                    title: Text(widget.user.promotionLabel),
+                    subtitle: Text(
+                      '${widget.user.departmentLabel} - Sexe ${widget.user.genderLabel}',
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
-                const SectionTitle(title: 'Frais à payer'),
+                const SectionTitle(title: 'Frais a payer'),
                 if (pendingFees.isEmpty)
                   const EmptyState(
                     icon: Icons.check_circle_outline,
                     title: 'En ordre',
-                    message: 'Vous n\'avez aucun frais en attente.',
+                    message: 'Vous n avez aucun frais en attente.',
                   )
                 else
-                  ...pendingFees.map((fee) => _FeeTile(
-                        fee: fee,
-                        onTap: () => _startPayment(fee),
-                      )),
+                  ...pendingFees.map(
+                    (fee) =>
+                        _FeeTile(fee: fee, onTap: () => _startPayment(fee)),
+                  ),
                 const SizedBox(height: 24),
                 const SectionTitle(title: 'Historique des paiements'),
                 if (data.payments.isEmpty)
                   const EmptyState(
                     icon: Icons.history,
                     title: 'Aucun paiement',
-                    message: 'Vos paiements apparaîtront ici.',
+                    message: 'Vos paiements apparaitront ici.',
                   )
                 else
-                  ...data.payments.map((p) {
-                    final feeTitle = data.fees.firstWhere((f) => f.id == p.feeId).title;
-                    return _PaymentTile(payment: p, student: widget.user, feeTitle: feeTitle);
+                  ...data.payments.map((payment) {
+                    final feeTitle = data.fees
+                        .firstWhere((fee) => fee.id == payment.feeId)
+                        .title;
+                    return _PaymentTile(
+                      payment: payment,
+                      student: widget.user,
+                      feeTitle: feeTitle,
+                    );
                   }),
               ],
             ),
@@ -161,15 +183,13 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
-  void _startPayment(Fee fee) async {
+  Future<void> _startPayment(Fee fee) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => PaymentSimulationSheet(
-        fee: fee,
-        database: widget.database,
-      ),
+      builder: (context) =>
+          PaymentSimulationSheet(fee: fee, database: widget.database),
     );
     if (result == true) {
       _refresh();
@@ -178,30 +198,43 @@ class _StudentHomeState extends State<StudentHome> {
 }
 
 class _StudentData {
+  const _StudentData({required this.fees, required this.payments});
+
   final List<Fee> fees;
   final List<Payment> payments;
-  _StudentData({required this.fees, required this.payments});
 }
 
 class _FeeTile extends StatelessWidget {
+  const _FeeTile({required this.fee, required this.onTap});
+
   final Fee fee;
   final VoidCallback onTap;
-
-  const _FeeTile({required this.fee, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        title: Text(fee.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Échéance: ${formatDate(fee.dueDate)}'),
+        title: Text(
+          fee.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('Echeance: ${formatDate(fee.dueDate)}'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(formatMoney(fee.amount), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
-            const Text('Payer', style: TextStyle(color: AppColors.accent, fontSize: 12)),
+            Text(
+              formatMoney(fee.amount),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const Text(
+              'Payer',
+              style: TextStyle(color: AppColors.accent, fontSize: 12),
+            ),
           ],
         ),
         onTap: onTap,
@@ -211,11 +244,15 @@ class _FeeTile extends StatelessWidget {
 }
 
 class _PaymentTile extends StatelessWidget {
+  const _PaymentTile({
+    required this.payment,
+    required this.student,
+    required this.feeTitle,
+  });
+
   final Payment payment;
   final User student;
   final String feeTitle;
-
-  const _PaymentTile({required this.payment, required this.student, required this.feeTitle});
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +267,10 @@ class _PaymentTile extends StatelessWidget {
         subtitle: Text(formatDate(payment.paidAt)),
         trailing: Text(
           formatMoney(payment.amount),
-          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.success,
+          ),
         ),
         onTap: () {
           Navigator.push(
@@ -248,4 +288,3 @@ class _PaymentTile extends StatelessWidget {
     );
   }
 }
-

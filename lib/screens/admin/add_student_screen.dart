@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+
 import '../../database/app_database.dart';
+import '../../models/department.dart';
 import '../../widgets/common_widgets.dart';
 
 class AddStudentScreen extends StatefulWidget {
-  final AppDatabase database;
+  const AddStudentScreen({
+    super.key,
+    required this.database,
+    required this.departments,
+  });
 
-  const AddStudentScreen({super.key, required this.database});
+  final AppDatabase database;
+  final List<Department> departments;
 
   @override
   State<AddStudentScreen> createState() => _AddStudentScreenState();
@@ -13,61 +20,62 @@ class AddStudentScreen extends StatefulWidget {
 
 class _AddStudentScreenState extends State<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nomController = TextEditingController();
-  final _postnomController = TextEditingController();
-  final _prenomController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _programController = TextEditingController();
-  final _levelController = TextEditingController();
+  final _fullNameController = TextEditingController();
   bool _isLoading = false;
+  String? _selectedPromotion;
+  String? _selectedDepartment;
+  String? _selectedGender;
+
+  final List<String> _promotions = const [
+    'Licence 1',
+    'Licence 2',
+    'Licence 3',
+    'Master 1',
+    'Master 2',
+  ];
 
   @override
   void dispose() {
-    _nomController.dispose();
-    _postnomController.dispose();
-    _prenomController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _programController.dispose();
-    _levelController.dispose();
+    _fullNameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
       await widget.database.createStudent(
-        fullName: '${_nomController.text} ${_postnomController.text} ${_prenomController.text}'.trim(),
-        email: _emailController.text,
-        password: _passwordController.text,
-        matricule: '', // non utilisé
-        program: _programController.text,
-        level: _levelController.text,
+        fullName: _fullNameController.text,
+        level: _selectedPromotion!,
+        program: _selectedDepartment!,
+        gender: _selectedGender!,
       );
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Étudiant créé avec succès')),
-        );
-      }
+      if (!mounted) return;
+      Navigator.pop(context, true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Etudiant preinscrit avec succes')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final departments = widget.departments;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvel Étudiant')),
+      appBar: AppBar(title: const Text('Nouvel etudiant')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -75,77 +83,81 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text(
+                'L administration cree une preinscription avec le nom complet, la promotion, la filiere et le sexe. L etudiant finalisera ensuite son compte depuis S inscrire.',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
               TextFormField(
-                controller: _nomController,
+                controller: _fullNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nom',
+                  labelText: 'Nom complet de l etudiant',
                   prefixIcon: Icon(Icons.person),
                 ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _postnomController,
-                decoration: const InputDecoration(
-                  labelText: 'Postnom',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _prenomController,
-                decoration: const InputDecoration(
-                  labelText: 'Prénom',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Mot de passe',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                obscureText: true,
-                validator: (v) => (v?.length ?? 0) < 6 ? 'Min 6 caractères' : null,
-              ),
-
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _programController,
-                decoration: const InputDecoration(
-                  labelText: 'Filière / Programme',
-                  prefixIcon: Icon(Icons.school),
-                ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Champ requis'
+                    : null,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
+                initialValue: _selectedPromotion,
                 decoration: const InputDecoration(
-                  labelText: 'Niveau',
-                  prefixIcon: Icon(Icons.layers),
+                  labelText: 'Promotion',
+                  prefixIcon: Icon(Icons.school_outlined),
                 ),
-                items: ['Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2']
-                    .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                items: _promotions
+                    .map(
+                      (item) =>
+                          DropdownMenuItem(value: item, child: Text(item)),
+                    )
                     .toList(),
-                onChanged: (v) => _levelController.text = v ?? '',
-                validator: (v) => v == null ? 'Champ requis' : null,
+                onChanged: (value) =>
+                    setState(() => _selectedPromotion = value),
+                validator: (value) => value == null ? 'Champ requis' : null,
               ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedDepartment,
+                decoration: const InputDecoration(
+                  labelText: 'Filiere',
+                  prefixIcon: Icon(Icons.account_tree_outlined),
+                ),
+                items: departments
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.name,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _selectedDepartment = value),
+                validator: (value) => value == null ? 'Champ requis' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedGender,
+                decoration: const InputDecoration(
+                  labelText: 'Sexe',
+                  prefixIcon: Icon(Icons.wc),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'M', child: Text('M')),
+                  DropdownMenuItem(value: 'F', child: Text('F')),
+                ],
+                onChanged: (value) => setState(() => _selectedGender = value),
+                validator: (value) => value == null ? 'Champ requis' : null,
+              ),
+              if (departments.isEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucune filiere disponible. Creez d abord une filiere dans l espace admin.',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ],
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
+                onPressed: _isLoading || departments.isEmpty ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor: AppColors.primary,
@@ -153,7 +165,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Enregistrer l\'Étudiant'),
+                    : const Text('Enregistrer la preinscription'),
               ),
             ],
           ),

@@ -1,6 +1,6 @@
-import 'user.dart';
 import 'fee.dart';
 import 'payment.dart';
+import 'user.dart';
 
 class StudentLedger {
   const StudentLedger({
@@ -31,4 +31,11 @@ class PaymentRow {
   final Payment payment;
   final User student;
   final Fee fee;
+}
+
+class FeeRow {
+  const FeeRow({required this.fee, required this.student});
+
+  final Fee fee;
+  final User student;
 }

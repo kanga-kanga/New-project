@@ -10,7 +10,7 @@ void main() {
 
   test('formats academic fee amounts', () {
     expect(formatMoney(450), contains('450'));
-    expect(formatMoney(450), contains('USD'));
+    expect(formatMoney(450), contains('CDF'));
   });
 
   test('formats academic dates', () {

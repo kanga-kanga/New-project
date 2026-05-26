@@ -1,69 +1,55 @@
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import '../models/user.dart';
+
+import '../models/department.dart';
 import '../models/fee.dart';
-import '../models/payment.dart';
 import '../models/ledger.dart';
+import '../models/payment.dart';
+import '../models/user.dart';
 
 class AppDatabase {
   Database? _db;
 
   Future<void> init() async {
     final options = OpenDatabaseOptions(
-      version: 2,
+      version: 4,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            full_name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL,
-            matricule TEXT,
-            program TEXT,
-            level TEXT
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE fees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            amount REAL NOT NULL,
-            due_date TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(student_id) REFERENCES users(id)
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fee_id INTEGER NOT NULL,
-            student_id INTEGER NOT NULL,
-            amount REAL NOT NULL,
-            method TEXT NOT NULL,
-            reference TEXT NOT NULL,
-            paid_at TEXT NOT NULL,
-            FOREIGN KEY(fee_id) REFERENCES fees(id),
-            FOREIGN KEY(student_id) REFERENCES users(id)
-          )
-        ''');
+        await _createSchema(db);
         await _seed(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _ensureAdministrationAccount(db);
         }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE users ADD COLUMN registration_completed INTEGER NOT NULL DEFAULT 1',
+          );
+        }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE users ADD COLUMN gender TEXT');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS departments (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL UNIQUE,
+              created_at TEXT NOT NULL
+            )
+          ''');
+          await _seedDepartments(db);
+        }
       },
     );
 
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfiWeb;
-      _db = await databaseFactory.openDatabase('academic_fees.db', options: options);
+      _db = await databaseFactory.openDatabase(
+        'academic_fees.db',
+        options: options,
+      );
     } else {
       final databasePath = await getDatabasesPath();
       final path = p.join(databasePath, 'academic_fees.db');
@@ -74,6 +60,55 @@ class AppDatabase {
         onUpgrade: options.onUpgrade,
       );
     }
+  }
+
+  Future<void> _createSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        registration_completed INTEGER NOT NULL DEFAULT 1,
+        gender TEXT,
+        matricule TEXT,
+        program TEXT,
+        level TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE departments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE fees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL,
+        due_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(student_id) REFERENCES users(id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fee_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        method TEXT NOT NULL,
+        reference TEXT NOT NULL,
+        paid_at TEXT NOT NULL,
+        FOREIGN KEY(fee_id) REFERENCES fees(id),
+        FOREIGN KEY(student_id) REFERENCES users(id)
+      )
+    ''');
   }
 
   Database get db {
@@ -90,6 +125,7 @@ class AppDatabase {
   }
 
   Future<void> _seed(Database db) async {
+    await _seedDepartments(db);
     await _ensureAdministrationAccount(db);
 
     final accountantId = await db.insert('users', {
@@ -97,6 +133,7 @@ class AppDatabase {
       'email': 'comptable@univ.local',
       'password': 'comptable123',
       'role': 'accountant',
+      'gender': 'F',
     });
 
     final aliceId = await db.insert('users', {
@@ -104,6 +141,8 @@ class AppDatabase {
       'email': 'alice@univ.local',
       'password': 'etudiant123',
       'role': 'student',
+      'registration_completed': 1,
+      'gender': 'F',
       'matricule': 'ETU-2026-001',
       'program': 'Informatique de gestion',
       'level': 'Licence 2',
@@ -114,6 +153,8 @@ class AppDatabase {
       'email': 'david@univ.local',
       'password': 'etudiant123',
       'role': 'student',
+      'registration_completed': 1,
+      'gender': 'M',
       'matricule': 'ETU-2026-002',
       'program': 'Sciences economiques',
       'level': 'Licence 3',
@@ -154,6 +195,22 @@ class AppDatabase {
     });
   }
 
+  Future<void> _seedDepartments(Database db) async {
+    final departments = [
+      'Informatique de gestion',
+      'Sciences economiques',
+      'Droit',
+      'Gestion des ressources humaines',
+    ];
+    final now = DateTime.now().toIso8601String();
+    for (final name in departments) {
+      await db.insert('departments', {
+        'name': name,
+        'created_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
   Future<void> _ensureAdministrationAccount(Database db) async {
     final rows = await db.query(
       'users',
@@ -161,7 +218,9 @@ class AppDatabase {
       whereArgs: ['admin@univ.local'],
       limit: 1,
     );
-    if (rows.isNotEmpty) return;
+    if (rows.isNotEmpty) {
+      return;
+    }
 
     await db.insert('users', {
       'full_name': 'Administration Universitaire',
@@ -178,8 +237,22 @@ class AppDatabase {
       whereArgs: [email.trim().toLowerCase(), password],
       limit: 1,
     );
-    if (rows.isEmpty) return null;
+    if (rows.isEmpty) {
+      return null;
+    }
     return User.fromMap(rows.first);
+  }
+
+  Future<List<Department>> departments() async {
+    final rows = await db.query('departments', orderBy: 'name ASC');
+    return rows.map(Department.fromMap).toList();
+  }
+
+  Future<void> createDepartment(String name) async {
+    await db.insert('departments', {
+      'name': name.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<List<User>> students() async {
@@ -194,44 +267,52 @@ class AppDatabase {
 
   Future<int> createStudent({
     required String fullName,
-    required String email,
-    required String password,
-    required String matricule,
-    required String program,
     required String level,
+    required String program,
+    required String gender,
   }) async {
+    final token = DateTime.now().microsecondsSinceEpoch;
     return db.insert('users', {
       'full_name': fullName.trim(),
-      'email': email.trim().toLowerCase(),
-      'password': password,
+      'email': 'pending-$token@preinscription.local',
+      'password': '',
       'role': 'student',
-      'matricule': matricule.trim(),
+      'registration_completed': 0,
+      'gender': gender.trim().toUpperCase(),
+      'matricule': '',
       'program': program.trim(),
       'level': level.trim(),
     });
   }
 
-  Future<void> updateStudent({
-    required int id,
-    required String fullName,
+  Future<User?> findStudentByFullName(String fullName) async {
+    final rows = await db.query(
+      'users',
+      where: 'role = ? AND LOWER(TRIM(full_name)) = ?',
+      whereArgs: ['student', fullName.trim().toLowerCase()],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return User.fromMap(rows.first);
+  }
+
+  Future<void> completeStudentRegistration({
+    required int studentId,
     required String email,
     required String password,
-    required String matricule,
-    required String program,
-    required String level,
   }) async {
     await db.update(
       'users',
       {
-        'full_name': fullName.trim(),
         'email': email.trim().toLowerCase(),
         'password': password,
-        'matricule': matricule.trim(),
-        'program': program.trim(),
-        'level': level.trim(),
+        'registration_completed': 1,
       },
       where: 'id = ? AND role = ?',
-      whereArgs: [id, 'student'],
+      whereArgs: [studentId, 'student'],
     );
   }
 
@@ -270,6 +351,8 @@ class AppDatabase {
         users.email,
         users.password,
         users.role,
+        users.registration_completed,
+        users.gender,
         users.matricule,
         users.program,
         users.level,
@@ -285,27 +368,36 @@ class AppDatabase {
       ORDER BY payments.paid_at DESC
     ''');
 
+    return rows.map(_paymentRowFromMap).toList();
+  }
+
+  Future<List<FeeRow>> allFees() async {
+    final rows = await db.rawQuery('''
+      SELECT
+        fees.id AS fee_row_id,
+        fees.student_id,
+        fees.title,
+        fees.amount AS fee_amount,
+        fees.due_date,
+        fees.status,
+        fees.created_at,
+        users.id AS user_id,
+        users.full_name,
+        users.email,
+        users.password,
+        users.role,
+        users.registration_completed,
+        users.gender,
+        users.matricule,
+        users.program,
+        users.level
+      FROM fees
+      INNER JOIN users ON users.id = fees.student_id
+      ORDER BY fees.created_at DESC, fees.due_date ASC
+    ''');
+
     return rows.map((row) {
-      return PaymentRow(
-        payment: Payment(
-          id: row['payment_id'] as int,
-          feeId: row['fee_id'] as int,
-          studentId: row['student_id'] as int,
-          amount: (row['payment_amount'] as num).toDouble(),
-          method: row['method'] as String,
-          reference: row['reference'] as String,
-          paidAt: DateTime.parse(row['paid_at'] as String),
-        ),
-        student: User.fromMap({
-          'id': row['user_id'],
-          'full_name': row['full_name'],
-          'email': row['email'],
-          'password': row['password'],
-          'role': row['role'],
-          'matricule': row['matricule'],
-          'program': row['program'],
-          'level': row['level'],
-        }),
+      return FeeRow(
         fee: Fee.fromMap({
           'id': row['fee_row_id'],
           'student_id': row['student_id'],
@@ -315,8 +407,48 @@ class AppDatabase {
           'status': row['status'],
           'created_at': row['created_at'],
         }),
+        student: _userFromJoinedMap(row),
       );
     }).toList();
+  }
+
+  PaymentRow _paymentRowFromMap(Map<String, Object?> row) {
+    return PaymentRow(
+      payment: Payment(
+        id: row['payment_id'] as int,
+        feeId: row['fee_id'] as int,
+        studentId: row['student_id'] as int,
+        amount: (row['payment_amount'] as num).toDouble(),
+        method: row['method'] as String,
+        reference: row['reference'] as String,
+        paidAt: DateTime.parse(row['paid_at'] as String),
+      ),
+      student: _userFromJoinedMap(row),
+      fee: Fee.fromMap({
+        'id': row['fee_row_id'],
+        'student_id': row['student_id'],
+        'title': row['title'],
+        'amount': row['fee_amount'],
+        'due_date': row['due_date'],
+        'status': row['status'],
+        'created_at': row['created_at'],
+      }),
+    );
+  }
+
+  User _userFromJoinedMap(Map<String, Object?> row) {
+    return User.fromMap({
+      'id': row['user_id'],
+      'full_name': row['full_name'],
+      'email': row['email'],
+      'password': row['password'],
+      'role': row['role'],
+      'registration_completed': row['registration_completed'],
+      'gender': row['gender'],
+      'matricule': row['matricule'],
+      'program': row['program'],
+      'level': row['level'],
+    });
   }
 
   Future<List<StudentLedger>> studentLedgers() async {
@@ -350,7 +482,7 @@ class AppDatabase {
   }) async {
     await db.insert('fees', {
       'student_id': studentId,
-      'title': title,
+      'title': title.trim(),
       'amount': amount,
       'due_date': dueDate.toIso8601String(),
       'status': 'pending',
@@ -370,7 +502,9 @@ class AppDatabase {
       whereArgs: ['student', level],
     );
 
-    if (students.isEmpty) return 0;
+    if (students.isEmpty) {
+      return 0;
+    }
 
     await db.transaction((txn) async {
       final now = DateTime.now().toIso8601String();
@@ -378,7 +512,7 @@ class AppDatabase {
       for (final student in students) {
         await txn.insert('fees', {
           'student_id': student['id'],
-          'title': title,
+          'title': title.trim(),
           'amount': amount,
           'due_date': due,
           'status': 'pending',
@@ -388,6 +522,31 @@ class AppDatabase {
     });
 
     return students.length;
+  }
+
+  Future<void> updateFee({
+    required int feeId,
+    required String title,
+    required double amount,
+    required DateTime dueDate,
+  }) async {
+    await db.update(
+      'fees',
+      {
+        'title': title.trim(),
+        'amount': amount,
+        'due_date': dueDate.toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [feeId],
+    );
+  }
+
+  Future<void> deleteFee(int feeId) async {
+    await db.transaction((txn) async {
+      await txn.delete('payments', where: 'fee_id = ?', whereArgs: [feeId]);
+      await txn.delete('fees', where: 'id = ?', whereArgs: [feeId]);
+    });
   }
 
   Future<Payment> simulatePayment(
@@ -400,7 +559,7 @@ class AppDatabase {
     final account = accountNumber.length > 4
         ? '***${accountNumber.substring(accountNumber.length - 4)}'
         : accountNumber;
-        
+
     return db.transaction((txn) async {
       await txn.update(
         'fees',

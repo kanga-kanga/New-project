@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+
 import '../../database/app_database.dart';
+import '../../models/ledger.dart';
 import '../../widgets/common_widgets.dart';
 
 class AddFeeScreen extends StatefulWidget {
-  final AppDatabase database;
+  const AddFeeScreen({super.key, required this.database, this.existingFee});
 
-  const AddFeeScreen({super.key, required this.database});
+  final AppDatabase database;
+  final FeeRow? existingFee;
 
   @override
   State<AddFeeScreen> createState() => _AddFeeScreenState();
@@ -13,19 +16,34 @@ class AddFeeScreen extends StatefulWidget {
 
 class _AddFeeScreenState extends State<AddFeeScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _amountController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _amountController;
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
   String? _selectedLevel;
   bool _isLoading = false;
 
-  final List<String> _levels = [
+  final List<String> _levels = const [
     'Licence 1',
     'Licence 2',
     'Licence 3',
     'Master 1',
-    'Master 2'
+    'Master 2',
   ];
+
+  bool get _isEditing => widget.existingFee != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(
+      text: widget.existingFee?.fee.title ?? '',
+    );
+    _amountController = TextEditingController(
+      text: widget.existingFee?.fee.amount.toStringAsFixed(0) ?? '',
+    );
+    _dueDate = widget.existingFee?.fee.dueDate ?? _dueDate;
+    _selectedLevel = widget.existingFee?.student.level;
+  }
 
   @override
   void dispose() {
@@ -38,7 +56,7 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _dueDate,
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
@@ -47,51 +65,77 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _selectedLevel == null) {
-      if (_selectedLevel == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez sélectionner un niveau')),
-        );
-      }
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (!_isEditing && _selectedLevel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez selectionner une promotion')),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      final count = await widget.database.createFeesByLevel(
-        level: _selectedLevel!,
-        title: _titleController.text,
-        amount: double.parse(_amountController.text),
-        dueDate: _dueDate,
-      );
-      
-      if (mounted) {
+      if (_isEditing) {
+        await widget.database.updateFee(
+          feeId: widget.existingFee!.fee.id,
+          title: _titleController.text,
+          amount: double.parse(_amountController.text),
+          dueDate: _dueDate,
+        );
+        if (!mounted) return;
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Frais modifies avec succes')),
+        );
+      } else {
+        final count = await widget.database.createFeesByLevel(
+          level: _selectedLevel!,
+          title: _titleController.text,
+          amount: double.parse(_amountController.text),
+          dueDate: _dueDate,
+        );
+        if (!mounted) return;
         if (count > 0) {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Frais créé pour $count étudiants au niveau $_selectedLevel')),
+            SnackBar(
+              content: Text(
+                'Frais crees pour $count etudiants de $_selectedLevel',
+              ),
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Aucun étudiant trouvé au niveau $_selectedLevel')),
+            SnackBar(
+              content: Text(
+                'Aucun etudiant trouve dans la promotion $_selectedLevel',
+              ),
+            ),
           );
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final existingFee = widget.existingFee;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouveau Frais par Niveau')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Modifier le frais' : 'Nouveau frais'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -99,30 +143,46 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<String>(
-                value: _selectedLevel,
-                decoration: const InputDecoration(
-                  labelText: 'Niveau Concerné',
-                  prefixIcon: Icon(Icons.layers),
+              if (_isEditing && existingFee != null) ...[
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: Text(existingFee.student.fullName),
+                    subtitle: Text(
+                      '${existingFee.student.promotionLabel} - ${existingFee.student.departmentLabel}',
+                    ),
+                  ),
                 ),
-                items: _levels
-                    .map((l) => DropdownMenuItem(
-                          value: l,
-                          child: Text(l),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedLevel = v),
-                validator: (v) => v == null ? 'Champ requis' : null,
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
+              if (!_isEditing) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedLevel,
+                  decoration: const InputDecoration(
+                    labelText: 'Promotion concernee',
+                    prefixIcon: Icon(Icons.layers),
+                  ),
+                  items: _levels
+                      .map(
+                        (level) =>
+                            DropdownMenuItem(value: level, child: Text(level)),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedLevel = value),
+                  validator: (value) => value == null ? 'Champ requis' : null,
+                ),
+                const SizedBox(height: 16),
+              ],
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
-                  labelText: 'Libellé du frais',
+                  labelText: 'Libelle du frais',
                   hintText: 'Ex: Minerval Tranche 2',
                   prefixIcon: Icon(Icons.title),
                 ),
-                validator: (v) => v?.isEmpty ?? true ? 'Champ requis' : null,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Champ requis'
+                    : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -132,14 +192,16 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
                   prefixIcon: Icon(Icons.money),
                 ),
                 keyboardType: TextInputType.number,
-                validator: (v) => double.tryParse(v ?? '') == null ? 'Montant invalide' : null,
+                validator: (value) => double.tryParse(value ?? '') == null
+                    ? 'Montant invalide'
+                    : null,
               ),
               const SizedBox(height: 16),
               InkWell(
                 onTap: _selectDate,
                 child: InputDecorator(
                   decoration: const InputDecoration(
-                    labelText: 'Date d\'échéance',
+                    labelText: 'Date d echeance',
                     prefixIcon: Icon(Icons.calendar_today),
                   ),
                   child: Text(formatDate(_dueDate)),
@@ -155,7 +217,7 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Générer les Frais'),
+                    : Text(_isEditing ? 'Enregistrer' : 'Generer les frais'),
               ),
             ],
           ),

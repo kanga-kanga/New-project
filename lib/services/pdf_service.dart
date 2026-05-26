@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:intl/intl.dart';
-import '../models/user.dart';
-import '../models/payment.dart';
+
 import '../models/ledger.dart';
-import '../database/app_database.dart';
+import '../models/payment.dart';
+import '../models/user.dart';
 
 class PdfService {
   static Future<pw.ImageProvider> _getLogo() async {
@@ -37,7 +37,7 @@ class PdfService {
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
+        build: (context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
@@ -52,38 +52,35 @@ class PdfService {
               ),
               pw.SizedBox(height: 8),
               pw.Text(
-                'REÇU OFFICIEL',
+                'RECU OFFICIEL',
                 style: pw.TextStyle(fontSize: 20, letterSpacing: 2),
               ),
               pw.Divider(height: 40),
-
-              pw.Container(
-                alignment: pw.Alignment.centerLeft,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _buildPdfRow('Étudiant', student.fullName),
-                    _buildPdfRow('Frais Payé', feeTitle, isHighlight: true),
-                    _buildPdfRow('Montant', _formatMoney(payment.amount)),
-                    _buildPdfRow('Date', _formatDate(payment.paidAt)),
-                    _buildPdfRow('Méthode', payment.method),
-                    _buildPdfRow('Référence', payment.reference),
-                  ],
-                ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _buildPdfRow('Etudiant', student.fullName),
+                  _buildPdfRow('Promotion', student.promotionLabel),
+                  _buildPdfRow('Filiere', student.departmentLabel),
+                  _buildPdfRow('Frais paye', feeTitle, isHighlight: true),
+                  _buildPdfRow('Montant', _formatMoney(payment.amount)),
+                  _buildPdfRow('Date', _formatDate(payment.paidAt)),
+                  _buildPdfRow('Methode', payment.method),
+                  _buildPdfRow('Reference', payment.reference),
+                ],
               ),
-
               pw.SizedBox(height: 60),
               pw.Container(
                 padding: const pw.EdgeInsets.all(16),
                 decoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex('#E8F5E9'), // Light green
+                  color: PdfColor.fromHex('#E8F5E9'),
                   borderRadius: const pw.BorderRadius.all(
                     pw.Radius.circular(12),
                   ),
                   border: pw.Border.all(color: PdfColor.fromHex('#4CAF50')),
                 ),
                 child: pw.Text(
-                  'PAIEMENT VALIDÉ',
+                  'PAIEMENT VALIDE',
                   style: pw.TextStyle(
                     color: PdfColor.fromHex('#4CAF50'),
                     fontWeight: pw.FontWeight.bold,
@@ -97,7 +94,7 @@ class PdfService {
     );
 
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (format) async => doc.save(),
       name: 'recu_${student.fullName.replaceAll(' ', '_')}.pdf',
     );
   }
@@ -135,7 +132,6 @@ class PdfService {
   ) async {
     final doc = pw.Document();
     final logo = await _getLogo();
-
     final totalAmount = rows.fold<double>(
       0,
       (sum, row) => sum + row.payment.amount,
@@ -144,7 +140,7 @@ class PdfService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
+        build: (context) {
           return [
             pw.Row(
               children: [
@@ -165,7 +161,7 @@ class PdfService {
                       style: const pw.TextStyle(fontSize: 14),
                     ),
                     pw.Text(
-                      'Période: $periodName',
+                      'Periode: $periodName',
                       style: const pw.TextStyle(
                         fontSize: 12,
                         color: PdfColors.grey700,
@@ -177,15 +173,23 @@ class PdfService {
             ),
             pw.SizedBox(height: 24),
             pw.TableHelper.fromTextArray(
-              headers: ['Date', 'Étudiant', 'Frais', 'Méthode', 'Montant'],
+              headers: [
+                'Date',
+                'Etudiant',
+                'Promotion',
+                'Filiere',
+                'Frais',
+                'Montant',
+              ],
               data: rows
                   .map(
-                    (r) => [
-                      _formatDate(r.payment.paidAt),
-                      r.student.fullName,
-                      r.fee.title,
-                      r.payment.method,
-                      _formatMoney(r.payment.amount),
+                    (row) => [
+                      _formatDate(row.payment.paidAt),
+                      row.student.fullName,
+                      row.student.promotionLabel,
+                      row.student.departmentLabel,
+                      row.fee.title,
+                      _formatMoney(row.payment.amount),
                     ],
                   )
                   .toList(),
@@ -193,17 +197,17 @@ class PdfService {
               headerDecoration: const pw.BoxDecoration(
                 color: PdfColors.grey300,
               ),
-              cellHeight: 30,
               cellAlignments: {
                 0: pw.Alignment.centerLeft,
                 1: pw.Alignment.centerLeft,
                 2: pw.Alignment.centerLeft,
                 3: pw.Alignment.centerLeft,
-                4: pw.Alignment.centerRight,
+                4: pw.Alignment.centerLeft,
+                5: pw.Alignment.centerRight,
               },
             ),
             pw.SizedBox(height: 16),
-            pw.Container(
+            pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
                 'Total: ${_formatMoney(totalAmount)}',
@@ -219,7 +223,7 @@ class PdfService {
     );
 
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (format) async => doc.save(),
       name: 'transactions_$periodName.pdf',
     );
   }
@@ -229,14 +233,13 @@ class PdfService {
   ) async {
     final doc = pw.Document();
     final logo = await _getLogo();
-
     final totalAttendu = ledgers.fold<double>(0, (sum, l) => sum + l.totalFees);
     final totalPercu = ledgers.fold<double>(0, (sum, l) => sum + l.totalPaid);
 
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
+        build: (context) {
           return [
             pw.Row(
               children: [
@@ -253,7 +256,7 @@ class PdfService {
                       ),
                     ),
                     pw.Text(
-                      'SITUATION GLOBALE DES ÉTUDIANTS',
+                      'SITUATION GLOBALE DES ETUDIANTS',
                       style: const pw.TextStyle(fontSize: 14),
                     ),
                   ],
@@ -269,7 +272,7 @@ class PdfService {
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 ),
                 pw.Text(
-                  'Total Perçu: ${_formatMoney(totalPercu)}',
+                  'Total Percu: ${_formatMoney(totalPercu)}',
                   style: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.green700,
@@ -280,22 +283,24 @@ class PdfService {
             pw.SizedBox(height: 16),
             pw.TableHelper.fromTextArray(
               headers: [
-                'Étudiant',
-                'Niveau',
+                'Etudiant',
+                'Promotion',
+                'Filiere',
                 'Attendu',
-                'Perçu',
+                'Percu',
                 'Reste',
                 'Statut',
               ],
               data: ledgers
                   .map(
-                    (l) => [
-                      l.student.fullName,
-                      l.student.level ?? 'N/A',
-                      _formatMoney(l.totalFees),
-                      _formatMoney(l.totalPaid),
-                      _formatMoney(l.balance),
-                      l.isInOrder ? 'En ordre' : 'Non en ordre',
+                    (ledger) => [
+                      ledger.student.fullName,
+                      ledger.student.promotionLabel,
+                      ledger.student.departmentLabel,
+                      _formatMoney(ledger.totalFees),
+                      _formatMoney(ledger.totalPaid),
+                      _formatMoney(ledger.balance),
+                      ledger.isInOrder ? 'En ordre' : 'Non en ordre',
                     ],
                   )
                   .toList(),
@@ -303,15 +308,6 @@ class PdfService {
               headerDecoration: const pw.BoxDecoration(
                 color: PdfColors.grey300,
               ),
-              cellHeight: 30,
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.centerRight,
-                3: pw.Alignment.centerRight,
-                4: pw.Alignment.centerRight,
-                5: pw.Alignment.center,
-              },
             ),
           ];
         },
@@ -319,7 +315,7 @@ class PdfService {
     );
 
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (format) async => doc.save(),
       name: 'situation_etudiants.pdf',
     );
   }

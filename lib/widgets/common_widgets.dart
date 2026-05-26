@@ -21,7 +21,6 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
-        background: AppColors.background,
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.background,
@@ -52,7 +51,9 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
       ),
@@ -70,6 +71,31 @@ String formatMoney(double amount) {
 
 String formatDate(DateTime date) {
   return DateFormat('dd MMM yyyy', 'fr_FR').format(date);
+}
+
+String formatRelativeTime(DateTime dateTime) {
+  final now = DateTime.now();
+  final difference = now.difference(dateTime);
+
+  if (difference.inMinutes < 1) {
+    return 'A l instant';
+  }
+  if (difference.inMinutes < 60) {
+    return 'Il y a ${difference.inMinutes} min';
+  }
+  if (difference.inHours < 24) {
+    return 'Il y a ${difference.inHours} h';
+  }
+  if (difference.inDays < 7) {
+    return 'Il y a ${difference.inDays} j';
+  }
+  if (difference.inDays < 30) {
+    return 'Il y a ${(difference.inDays / 7).floor()} sem';
+  }
+  if (difference.inDays < 365) {
+    return 'Il y a ${(difference.inDays / 30).floor()} mois';
+  }
+  return 'Il y a ${(difference.inDays / 365).floor()} an';
 }
 
 class SectionTitle extends StatelessWidget {
@@ -96,10 +122,7 @@ class SectionTitle extends StatelessWidget {
           if (trailing != null)
             Text(
               trailing!,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
         ],
       ),
@@ -168,7 +191,7 @@ class SummaryCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 20),
@@ -176,17 +199,11 @@ class SummaryCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),

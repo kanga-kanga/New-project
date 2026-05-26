@@ -27,7 +27,9 @@ class ReceiptScreen extends StatelessWidget {
             children: [
               Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
@@ -44,12 +46,20 @@ class ReceiptScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       const Text(
                         'ISP / LUBUMBASHI',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
                         'REÇU OFFICIEL',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.primary),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const Divider(height: 40),
                       _buildRow('Étudiant', student.fullName),
@@ -62,9 +72,11 @@ class ReceiptScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
+                          color: AppColors.success.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.success.withOpacity(0.5)),
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -73,7 +85,10 @@ class ReceiptScreen extends StatelessWidget {
                             SizedBox(width: 8),
                             Text(
                               'PAIEMENT VALIDÉ',
-                              style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -117,14 +132,17 @@ class ReceiptScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              value, 
+              value,
               textAlign: TextAlign.right,
               style: TextStyle(
-                fontWeight: FontWeight.bold, 
+                fontWeight: FontWeight.bold,
                 fontSize: isHighlight ? 16 : 14,
                 color: isHighlight ? AppColors.primary : Colors.black,
               ),

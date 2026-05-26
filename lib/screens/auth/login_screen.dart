@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
+
 import '../../database/app_database.dart';
 import '../../models/user.dart';
 import '../../widgets/common_widgets.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  final AppDatabase database;
-  final ValueChanged<User> onLoggedIn;
-
   const LoginScreen({
     super.key,
     required this.database,
     required this.onLoggedIn,
   });
 
+  final AppDatabase database;
+  final ValueChanged<User> onLoggedIn;
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'alice@univ.local');
-  final _passwordController = TextEditingController(text: 'etudiant123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -38,12 +40,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 Image.asset('assets/logo.png', height: 120),
                 const SizedBox(height: 24),
                 const Text(
-                  'Bienvenue à l\'ISP / Lubumbashi',
+                  'Bienvenue a l ISP / Lubumbashi',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const Text(
-                  'Gestion des Frais Académiques',
+                  'Gestion des Frais Academiques',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
@@ -68,7 +74,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
-                    style: const TextStyle(color: AppColors.error, fontSize: 14),
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 14,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -76,31 +85,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: _isLoading ? null : _login,
                   child: _isLoading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : const Text('Se connecter'),
                 ),
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                const Text('Comptes de test:', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
-                const SizedBox(height: 8),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  children: [
-                    _TestAccountChip(
-                      label: 'Etudiant',
-                      onTap: () => _fill('alice@univ.local', 'etudiant123'),
-                    ),
-                    _TestAccountChip(
-                      label: 'Admin',
-                      onTap: () => _fill('admin@univ.local', 'admin123'),
-                    ),
-                    _TestAccountChip(
-                      label: 'Comptable',
-                      onTap: () => _fill('comptable@univ.local', 'comptable123'),
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _openRegister,
+                  icon: const Icon(Icons.how_to_reg_outlined),
+                  label: const Text('S inscrire'),
                 ),
               ],
             ),
@@ -110,48 +109,39 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _fill(String email, String pass) {
-    setState(() {
-      _emailController.text = email;
-      _passwordController.text = pass;
-    });
-  }
-
-  void _login() async {
+  Future<void> _login() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final user = await widget.database.login(_emailController.text, _passwordController.text);
+      final user = await widget.database.login(
+        _emailController.text,
+        _passwordController.text,
+      );
+      if (!mounted) return;
       if (user != null) {
         widget.onLoggedIn(user);
       } else {
         setState(() => _errorMessage = 'Identifiants incorrects');
       }
-    } catch (e) {
+    } catch (_) {
+      if (!mounted) return;
       setState(() => _errorMessage = 'Erreur de connexion');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
 
-class _TestAccountChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _TestAccountChip({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      onPressed: onTap,
-      backgroundColor: Colors.grey.shade100,
-      side: BorderSide.none,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+  void _openRegister() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RegisterScreen(database: widget.database),
+      ),
     );
   }
 }
