@@ -39,11 +39,21 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 32),
             const Text(
-              'ISP / Lubumbashi',
+              'Bienvenue à notre plateforme de frais académiques',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'ISP / Lubumbashi',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
               ),
             ),
             const SizedBox(height: 16),

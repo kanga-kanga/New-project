@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -37,21 +37,36 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset('assets/logo.png', height: 120),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset('assets/logo.png', height: 110),
+                ),
                 const SizedBox(height: 24),
                 const Text(
-                  'Bienvenue a l ISP / Lubumbashi',
+                  'Bienvenue à notre plateforme de frais académiques\n( ISP / Lubumbashi )',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 23,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
+                    height: 1.2,
                   ),
                 ),
                 const Text(
-                  'Gestion des Frais Academiques',
+                  'Trésorerie, budget, étudiants et reçus dans un seul espace.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: TextStyle(fontSize: 15, color: Colors.grey),
                 ),
                 const SizedBox(height: 48),
                 TextFormField(

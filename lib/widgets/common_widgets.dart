@@ -73,6 +73,10 @@ String formatDate(DateTime date) {
   return DateFormat('dd MMM yyyy', 'fr_FR').format(date);
 }
 
+String formatDateTime(DateTime dateTime) {
+  return DateFormat('dd MMM yyyy HH:mm', 'fr_FR').format(dateTime);
+}
+
 String formatRelativeTime(DateTime dateTime) {
   final now = DateTime.now();
   final difference = now.difference(dateTime);

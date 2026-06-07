@@ -26,6 +26,10 @@ class PdfService {
     return DateFormat('dd MMM yyyy', 'fr_FR').format(date);
   }
 
+  static String _formatDateTime(DateTime dateTime) {
+    return DateFormat('dd MMM yyyy HH:mm', 'fr_FR').format(dateTime);
+  }
+
   static Future<void> generateReceipt(
     Payment payment,
     User student,
@@ -52,7 +56,7 @@ class PdfService {
               ),
               pw.SizedBox(height: 8),
               pw.Text(
-                'RECU OFFICIEL',
+                'RECU OFFICIEL DE LA TRESORERIE',
                 style: pw.TextStyle(fontSize: 20, letterSpacing: 2),
               ),
               pw.Divider(height: 40),
@@ -62,9 +66,9 @@ class PdfService {
                   _buildPdfRow('Etudiant', student.fullName),
                   _buildPdfRow('Promotion', student.promotionLabel),
                   _buildPdfRow('Filiere', student.departmentLabel),
-                  _buildPdfRow('Frais paye', feeTitle, isHighlight: true),
-                  _buildPdfRow('Montant', _formatMoney(payment.amount)),
-                  _buildPdfRow('Date', _formatDate(payment.paidAt)),
+                  _buildPdfRow('Motif', feeTitle, isHighlight: true),
+                  _buildPdfRow('Montant paye', _formatMoney(payment.amount)),
+                  _buildPdfRow('Date/heure', _formatDateTime(payment.paidAt)),
                   _buildPdfRow('Methode', payment.method),
                   _buildPdfRow('Reference', payment.reference),
                 ],
@@ -80,7 +84,7 @@ class PdfService {
                   border: pw.Border.all(color: PdfColor.fromHex('#4CAF50')),
                 ),
                 child: pw.Text(
-                  'PAIEMENT VALIDE',
+                  'PAIEMENT PAYE',
                   style: pw.TextStyle(
                     color: PdfColor.fromHex('#4CAF50'),
                     fontWeight: pw.FontWeight.bold,

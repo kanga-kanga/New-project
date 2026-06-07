@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../database/app_database.dart';
+import '../../models/department.dart';
 import '../../models/ledger.dart';
 import '../../models/user.dart';
 import '../../services/pdf_service.dart';
@@ -26,12 +27,13 @@ class AccountantHome extends StatefulWidget {
 class _AccountantHomeState extends State<AccountantHome>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late Future<_AccountantData> _future;
+  late Future<_TreasuryData> _future;
+  final _departmentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _future = _load();
     _tabController.addListener(() => setState(() {}));
   }
@@ -39,14 +41,25 @@ class _AccountantHomeState extends State<AccountantHome>
   @override
   void dispose() {
     _tabController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
-  Future<_AccountantData> _load() async {
+  Future<_TreasuryData> _load() async {
     final payments = await widget.database.recentPayments();
     final ledgers = await widget.database.studentLedgers();
     final fees = await widget.database.allFees();
-    return _AccountantData(payments: payments, ledgers: ledgers, fees: fees);
+    final departments = await widget.database.departments();
+    final promotions = await widget.database.promotions();
+    final students = await widget.database.students();
+    return _TreasuryData(
+      payments: payments,
+      ledgers: ledgers,
+      fees: fees,
+      departments: departments,
+      promotions: promotions,
+      students: students,
+    );
   }
 
   void _refresh() {
@@ -83,7 +96,7 @@ class _AccountantHomeState extends State<AccountantHome>
   Future<void> _deleteFee(FeeRow feeRow) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Supprimer ce frais ?'),
           content: Text(
@@ -91,11 +104,11 @@ class _AccountantHomeState extends State<AccountantHome>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Annuler'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Supprimer'),
             ),
           ],
@@ -115,8 +128,52 @@ class _AccountantHomeState extends State<AccountantHome>
     ).showSnackBar(const SnackBar(content: Text('Frais supprime')));
   }
 
-  Future<void> _exportTransactions(List<PaymentRow> rows) async {
-    await PdfService.generateTransactionReport(rows, 'complet');
+  Future<void> _showDepartmentDialog() async {
+    _departmentController.clear();
+    final messenger = ScaffoldMessenger.of(context);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Nouvelle filiere'),
+          content: TextField(
+            controller: _departmentController,
+            decoration: const InputDecoration(labelText: 'Nom de la filiere'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final value = _departmentController.text.trim();
+                if (value.isEmpty) {
+                  return;
+                }
+                try {
+                  await widget.database.createDepartment(value);
+                  if (!mounted) return;
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  _refresh();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Filiere ajoutee')),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(SnackBar(content: Text('Erreur: $e')));
+                }
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -125,24 +182,37 @@ class _AccountantHomeState extends State<AccountantHome>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Espace Comptable'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Espace Trésorerie', style: TextStyle(fontSize: 14)),
+            Text(
+              widget.user.fullName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Transactions', icon: Icon(Icons.receipt_long)),
-            Tab(text: 'Gestion des frais', icon: Icon(Icons.account_balance)),
+            Tab(text: 'Paiements', icon: Icon(Icons.receipt_long)),
+            Tab(text: 'Frais', icon: Icon(Icons.account_balance)),
+            Tab(text: 'Filieres', icon: Icon(Icons.account_tree_outlined)),
           ],
         ),
         actions: [
-          FutureBuilder<_AccountantData>(
+          FutureBuilder<_TreasuryData>(
             future: _future,
             builder: (context, snapshot) {
               final payments = snapshot.data?.payments ?? const <PaymentRow>[];
               return IconButton(
-                tooltip: 'Rapport PDF',
+                tooltip: 'Export PDF',
                 onPressed: payments.isEmpty
                     ? null
-                    : () => _exportTransactions(payments),
+                    : () => PdfService.generateTransactionReport(
+                        payments,
+                        'transactions recents',
+                      ),
                 icon: const Icon(Icons.picture_as_pdf_outlined),
               );
             },
@@ -153,16 +223,21 @@ class _AccountantHomeState extends State<AccountantHome>
           ),
         ],
       ),
-      body: FutureBuilder<_AccountantData>(
+      body: FutureBuilder<_TreasuryData>(
         future: _future,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
+
           final data = snapshot.data!;
           final totalPaid = data.ledgers.fold<double>(
             0,
             (s, l) => s + l.totalPaid,
+          );
+          final totalDue = data.ledgers.fold<double>(
+            0,
+            (s, l) => s + l.totalFees,
           );
 
           return RefreshIndicator(
@@ -173,23 +248,60 @@ class _AccountantHomeState extends State<AccountantHome>
                 ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    SummaryCard(
-                      title: 'Recettes Totales',
-                      value: formatMoney(totalPaid),
-                      icon: Icons.account_balance_wallet,
-                      color: AppColors.success,
+                    _buildHeroCard(),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SizedBox(
+                          width: 160,
+                          child: SummaryCard(
+                            title: 'Recettes',
+                            value: formatMoney(totalPaid),
+                            icon: Icons.payments,
+                            color: AppColors.success,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 160,
+                          child: SummaryCard(
+                            title: 'Attendu',
+                            value: formatMoney(totalDue),
+                            icon: Icons.account_balance,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 160,
+                          child: SummaryCard(
+                            title: 'Etudiants',
+                            value: '${data.students.length}',
+                            icon: Icons.people_alt_outlined,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
-                    const SectionTitle(title: 'Dernieres transactions'),
-                    if (data.payments.isEmpty)
+                    SectionTitle(
+                      title: 'Paiements par promotion',
+                      trailing: '${data.promotions.length} promotions',
+                    ),
+                    if (data.promotions.isEmpty)
                       const EmptyState(
-                        icon: Icons.history,
+                        icon: Icons.receipt_long,
                         title: 'Aucun paiement',
-                        message: 'Les transactions recentes apparaitront ici.',
+                        message: 'Les paiements seront affiches ici par promotion.',
                       )
                     else
-                      ...data.payments.map(
-                        (payment) => _AccountantPaymentTile(row: payment),
+                      ...data.promotions.map(
+                        (promotion) => _PromotionPaymentCard(
+                          promotion: promotion,
+                          rows: data.payments
+                              .where((row) => row.student.level == promotion)
+                              .toList(),
+                        ),
                       ),
                   ],
                 ),
@@ -197,14 +309,14 @@ class _AccountantHomeState extends State<AccountantHome>
                   padding: const EdgeInsets.all(16),
                   children: [
                     SectionTitle(
-                      title: 'Frais ajoutes',
-                      trailing: '${data.fees.length} frais',
+                      title: 'Frais par promotion et par etudiant',
+                      trailing: '${data.fees.length} lignes',
                     ),
                     if (data.fees.isEmpty)
                       const EmptyState(
                         icon: Icons.account_balance_outlined,
                         title: 'Aucun frais',
-                        message: 'Les frais ajoutes apparaitront ici.',
+                        message: 'Créez les frais ici pour les regrouper par promotion.',
                       )
                     else
                       ...data.fees.map(
@@ -213,6 +325,54 @@ class _AccountantHomeState extends State<AccountantHome>
                           onEdit: () => _editFee(feeRow),
                           onDelete: () => _deleteFee(feeRow),
                         ),
+                      ),
+                  ],
+                ),
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.logo_dev_outlined),
+                        title: const Text('Filieres et promotions'),
+                        subtitle: const Text(
+                          'Les filieres sont ajoutees ici et les promotions sont affichees automatiquement depuis les etudiants inscrits.',
+                        ),
+                        trailing: FilledButton.icon(
+                          onPressed: _showDepartmentDialog,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Ajouter filiere'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SectionTitle(
+                      title: 'Filieres',
+                      trailing: '${data.departments.length} filieres',
+                    ),
+                    if (data.departments.isEmpty)
+                      const EmptyState(
+                        icon: Icons.account_tree_outlined,
+                        title: 'Aucune filiere',
+                        message: 'Ajoutez une filiere pour la voir dans les tableaux de paiement.',
+                      )
+                    else
+                      _DepartmentTable(departments: data.departments),
+                    const SizedBox(height: 24),
+                    SectionTitle(
+                      title: 'Promotions',
+                      trailing: '${data.promotions.length} promotions',
+                    ),
+                    if (data.promotions.isEmpty)
+                      const EmptyState(
+                        icon: Icons.school_outlined,
+                        title: 'Aucune promotion',
+                        message: 'Les promotions apparaissent automatiquement selon les etudiants.',
+                      )
+                    else
+                      _PromotionTable(
+                        promotions: data.promotions,
+                        ledgers: data.ledgers,
                       ),
                   ],
                 ),
@@ -232,58 +392,210 @@ class _AccountantHomeState extends State<AccountantHome>
           : null,
     );
   }
+
+  Widget _buildHeroCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Image.asset('assets/logo.png', width: 48, height: 48),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Direction de la trésorerie',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Suivi des frais, des paiements et des filières par promotion.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _AccountantData {
-  const _AccountantData({
+class _TreasuryData {
+  const _TreasuryData({
     required this.payments,
     required this.ledgers,
     required this.fees,
+    required this.departments,
+    required this.promotions,
+    required this.students,
   });
 
   final List<PaymentRow> payments;
   final List<StudentLedger> ledgers;
   final List<FeeRow> fees;
+  final List<Department> departments;
+  final List<String> promotions;
+  final List<User> students;
 }
 
-class _AccountantPaymentTile extends StatelessWidget {
-  const _AccountantPaymentTile({required this.row});
+class _PromotionPaymentCard extends StatelessWidget {
+  const _PromotionPaymentCard({
+    required this.promotion,
+    required this.rows,
+  });
 
-  final PaymentRow row;
+  final String promotion;
+  final List<PaymentRow> rows;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.success.withValues(alpha: 0.1),
-          child: const Icon(Icons.payment, color: AppColors.success),
-        ),
-        title: Text(
-          row.student.fullName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          '${row.fee.title}\n${row.payment.method}\n${formatRelativeTime(row.payment.paidAt)}',
-        ),
-        isThreeLine: true,
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              formatMoney(row.payment.amount),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.success,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    promotion,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${rows.length} paiements',
+                  style: const TextStyle(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('Etudiant')),
+                  DataColumn(label: Text('Filiere')),
+                  DataColumn(label: Text('Motif')),
+                  DataColumn(label: Text('Montant')),
+                  DataColumn(label: Text('Date/heure')),
+                ],
+                rows: rows
+                    .map(
+                      (row) => DataRow(
+                        cells: [
+                          DataCell(Text(row.student.fullName)),
+                          DataCell(Text(row.student.departmentLabel)),
+                          DataCell(Text(row.fee.title)),
+                          DataCell(Text(formatMoney(row.payment.amount))),
+                          DataCell(Text(formatDateTime(row.payment.paidAt))),
+                        ],
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-            Text(
-              formatDate(row.payment.paidAt),
-              style: const TextStyle(fontSize: 10),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PromotionTable extends StatelessWidget {
+  const _PromotionTable({
+    required this.promotions,
+    required this.ledgers,
+  });
+
+  final List<String> promotions;
+  final List<StudentLedger> ledgers;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Promotion')),
+              DataColumn(label: Text('Etudiants')),
+              DataColumn(label: Text('En ordre')),
+              DataColumn(label: Text('Non en ordre')),
+              DataColumn(label: Text('Total percu')),
+            ],
+            rows: promotions.map((promotion) {
+              final rows = ledgers.where((ledger) => ledger.student.level == promotion).toList();
+              final inOrder = rows.where((ledger) => ledger.isInOrder).length;
+              final pending = rows.length - inOrder;
+              final totalPaid = rows.fold<double>(0, (sum, row) => sum + row.totalPaid);
+              return DataRow(
+                cells: [
+                  DataCell(Text(promotion)),
+                  DataCell(Text('${rows.length}')),
+                  DataCell(Text('$inOrder')),
+                  DataCell(Text('$pending')),
+                  DataCell(Text(formatMoney(totalPaid))),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DepartmentTable extends StatelessWidget {
+  const _DepartmentTable({required this.departments});
+
+  final List<Department> departments;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Filiere')),
+            ],
+            rows: departments
+                .map(
+                  (department) => DataRow(
+                    cells: [DataCell(Text(department.name))],
+                  ),
+                )
+                .toList(),
+          ),
         ),
       ),
     );
@@ -311,9 +623,7 @@ class _FeeManagementTile extends StatelessWidget {
               ? AppColors.success.withValues(alpha: 0.1)
               : AppColors.warning.withValues(alpha: 0.1),
           child: Icon(
-            row.fee.isPaid
-                ? Icons.check_circle_outline
-                : Icons.pending_outlined,
+            row.fee.isPaid ? Icons.check_circle_outline : Icons.pending_outlined,
             color: row.fee.isPaid ? AppColors.success : AppColors.warning,
           ),
         ),

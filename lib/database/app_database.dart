@@ -60,6 +60,8 @@ class AppDatabase {
         onUpgrade: options.onUpgrade,
       );
     }
+
+    await _ensureCoreAccounts(_db!);
   }
 
   Future<void> _createSchema(Database db) async {
@@ -126,11 +128,10 @@ class AppDatabase {
 
   Future<void> _seed(Database db) async {
     await _seedDepartments(db);
-    await _ensureAdministrationAccount(db);
 
     final accountantId = await db.insert('users', {
       'full_name': 'Grace Mbala',
-      'email': 'comptable@univ.local',
+      'email': 'tresorerie@univ.local',
       'password': 'comptable123',
       'role': 'accountant',
       'gender': 'F',
@@ -230,6 +231,58 @@ class AppDatabase {
     });
   }
 
+  Future<void> _ensureCoreAccounts(Database db) async {
+    await _ensureAccount(
+      db,
+      email: 'admin@univ.local',
+      fullName: 'Administration Universitaire',
+      password: 'admin123',
+      role: 'administration',
+    );
+    await _ensureAccount(
+      db,
+      email: 'budget@univ.local',
+      fullName: 'Budget Universitaire',
+      password: 'budget123',
+      role: 'budget_admin',
+    );
+    await _ensureAccount(
+      db,
+      email: 'tresorerie@univ.local',
+      fullName: 'Grace Mbala',
+      password: 'comptable123',
+      role: 'accountant',
+      gender: 'F',
+    );
+  }
+
+  Future<void> _ensureAccount(
+    Database db, {
+    required String email,
+    required String fullName,
+    required String password,
+    required String role,
+    String? gender,
+  }) async {
+    final rows = await db.query(
+      'users',
+      where: 'LOWER(email) = ?',
+      whereArgs: [email.toLowerCase()],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return;
+    }
+
+    await db.insert('users', {
+      'full_name': fullName,
+      'email': email,
+      'password': password,
+      'role': role,
+      if (gender != null) 'gender': gender,
+    });
+  }
+
   Future<User?> login(String email, String password) async {
     final rows = await db.query(
       'users',
@@ -263,6 +316,19 @@ class AppDatabase {
       orderBy: 'full_name ASC',
     );
     return rows.map(User.fromMap).toList();
+  }
+
+  Future<List<String>> promotions() async {
+    final rows = await db.rawQuery('''
+      SELECT DISTINCT level
+      FROM users
+      WHERE role = 'student' AND level IS NOT NULL AND TRIM(level) <> ''
+      ORDER BY level ASC
+    ''');
+    return rows
+        .map((row) => row['level'] as String)
+        .where((level) => level.trim().isNotEmpty)
+        .toList();
   }
 
   Future<int> createStudent({

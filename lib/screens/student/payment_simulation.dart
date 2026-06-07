@@ -1,18 +1,20 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
+
 import '../../database/app_database.dart';
 import '../../models/fee.dart';
 import '../../widgets/common_widgets.dart';
 
 class PaymentSimulationSheet extends StatefulWidget {
-  final Fee fee;
-  final AppDatabase database;
-
   const PaymentSimulationSheet({
     super.key,
     required this.fee,
     required this.database,
   });
+
+  final Fee fee;
+  final AppDatabase database;
 
   @override
   State<PaymentSimulationSheet> createState() => _PaymentSimulationSheetState();
@@ -69,7 +71,7 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
         DropdownButtonFormField<String>(
           initialValue: _method,
           decoration: const InputDecoration(labelText: 'Moyen de paiement'),
-          items: [
+          items: const [
             'Mobile Money',
             'Carte Bancaire',
             'Virement',

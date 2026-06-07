@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../models/payment.dart';
 import '../../models/user.dart';
-import '../../widgets/common_widgets.dart';
 import '../../services/pdf_service.dart';
+import '../../widgets/common_widgets.dart';
 
 class ReceiptScreen extends StatelessWidget {
-  final Payment payment;
-  final User student;
-  final String feeTitle;
-
   const ReceiptScreen({
     super.key,
     required this.payment,
@@ -16,10 +13,14 @@ class ReceiptScreen extends StatelessWidget {
     required this.feeTitle,
   });
 
+  final Payment payment;
+  final User student;
+  final String feeTitle;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reçu de Paiement')),
+      appBar: AppBar(title: const Text('Reçu de paiement')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -42,7 +43,7 @@ class ReceiptScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      Image.asset('assets/logo.png', height: 80),
+                      Image.asset('assets/logo.png', height: 84),
                       const SizedBox(height: 16),
                       const Text(
                         'ISP / LUBUMBASHI',
@@ -53,22 +54,25 @@ class ReceiptScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'REÇU OFFICIEL',
+                        'RECU OFFICIEL DE LA TRESORERIE',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
+                          letterSpacing: 1.4,
                           color: AppColors.primary,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const Divider(height: 40),
                       _buildRow('Étudiant', student.fullName),
-                      _buildRow('Frais Payé', feeTitle, isHighlight: true),
-                      _buildRow('Montant', formatMoney(payment.amount)),
-                      _buildRow('Date', formatDate(payment.paidAt)),
-                      _buildRow('Méthode', payment.method),
+                      _buildRow('Promotion', student.promotionLabel),
+                      _buildRow('Filière', student.departmentLabel),
+                      _buildRow('Motif', feeTitle, isHighlight: true),
+                      _buildRow('Montant payé', formatMoney(payment.amount)),
+                      _buildRow('Date/heure', formatDateTime(payment.paidAt)),
                       _buildRow('Référence', payment.reference),
-                      const SizedBox(height: 40),
+                      _buildRow('Trésorerie', 'Paiement enregistré'),
+                      const SizedBox(height: 32),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -84,7 +88,7 @@ class ReceiptScreen extends StatelessWidget {
                             Icon(Icons.verified, color: AppColors.success),
                             SizedBox(width: 8),
                             Text(
-                              'PAIEMENT VALIDÉ',
+                              'PAIEMENT PAYE',
                               style: TextStyle(
                                 color: AppColors.success,
                                 fontWeight: FontWeight.bold,
@@ -98,8 +102,10 @@ class ReceiptScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
@@ -108,7 +114,6 @@ class ReceiptScreen extends StatelessWidget {
                     icon: const Icon(Icons.download),
                     label: const Text('Télécharger PDF'),
                   ),
-                  const SizedBox(width: 16),
                   ElevatedButton.icon(
                     onPressed: () {
                       PdfService.generateReceipt(payment, student, feeTitle);

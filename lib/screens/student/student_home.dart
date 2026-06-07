@@ -84,6 +84,30 @@ class _StudentHomeState extends State<StudentHome> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                Card(
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 32,
+                        height: 32,
+                      ),
+                    ),
+                    title: const Text(
+                      'Espace Etudiant',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Vos paiements apparaissent en vert quand ils sont payes.',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 _buildProgressCard(percentage, paid, total),
                 const SizedBox(height: 16),
                 Card(
@@ -109,7 +133,7 @@ class _StudentHomeState extends State<StudentHome> {
                         _FeeTile(fee: fee, onTap: () => _startPayment(fee)),
                   ),
                 const SizedBox(height: 24),
-                const SectionTitle(title: 'Historique des paiements'),
+                const SectionTitle(title: 'Historique des paiements payes'),
                 if (data.payments.isEmpty)
                   const EmptyState(
                     icon: Icons.history,
@@ -259,19 +283,37 @@ class _PaymentTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE0F2FE),
-          child: Icon(Icons.receipt, color: AppColors.accent),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.success.withValues(alpha: 0.12),
+          child: const Icon(Icons.receipt_long, color: AppColors.success),
         ),
-        title: Text(payment.method),
-        subtitle: Text(formatDate(payment.paidAt)),
-        trailing: Text(
-          formatMoney(payment.amount),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.success,
-          ),
+        title: Text(
+          feeTitle,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        subtitle: Text(formatDateTime(payment.paidAt)),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              formatMoney(payment.amount),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.success,
+              ),
+            ),
+            const Text(
+              'Payé',
+              style: TextStyle(
+                color: AppColors.success,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+
         onTap: () {
           Navigator.push(
             context,

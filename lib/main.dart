@@ -3,7 +3,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'database/app_database.dart';
 import 'models/user.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/admin/admin_home.dart';
+import 'screens/budget/budget_admin_home.dart';
+import 'screens/direction/dg_home.dart';
 import 'screens/accountant/accountant_home.dart';
 import 'screens/student/student_home.dart';
 import 'screens/splash_screen.dart';
@@ -37,7 +38,7 @@ class _AcademicFeesAppState extends State<AcademicFeesApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ISP Lubumbashi - Frais',
+      title: 'ISP Lubumbashi - Plateforme de frais academiques',
       theme: AppTheme.light,
       home: _showSplash
           ? SplashScreen(
@@ -61,7 +62,12 @@ class _AcademicFeesAppState extends State<AcademicFeesApp> {
         user: user,
         onLogout: () => _setUser(null),
       ),
-      UserRole.administration => AdministrationHome(
+      UserRole.budgetAdmin => BudgetAdminHome(
+        database: widget.database,
+        user: user,
+        onLogout: () => _setUser(null),
+      ),
+      UserRole.dg => DGHome(
         database: widget.database,
         user: user,
         onLogout: () => _setUser(null),

@@ -1,18 +1,20 @@
-enum UserRole { student, accountant, administration }
+enum UserRole { student, accountant, budgetAdmin, dg }
 
 String roleToDatabaseValue(UserRole role) {
   return switch (role) {
     UserRole.student => 'student',
     UserRole.accountant => 'accountant',
-    UserRole.administration => 'administration',
+    UserRole.budgetAdmin => 'budget_admin',
+    UserRole.dg => 'administration',
   };
 }
 
 String roleLabel(UserRole role) {
   return switch (role) {
     UserRole.student => 'Etudiant',
-    UserRole.accountant => 'Comptable',
-    UserRole.administration => 'Administration',
+    UserRole.accountant => 'Tresorerie',
+    UserRole.budgetAdmin => 'Administrateur Budget',
+    UserRole.dg => 'DG',
   };
 }
 
@@ -74,7 +76,9 @@ class User {
       password: map['password'] as String,
       role: switch (map['role'] as String) {
         'accountant' => UserRole.accountant,
-        'administration' => UserRole.administration,
+        'budget_admin' => UserRole.budgetAdmin,
+        'dg' => UserRole.dg,
+        'administration' => UserRole.dg,
         _ => UserRole.student,
       },
       registrationCompleted:
