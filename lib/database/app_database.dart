@@ -615,6 +615,43 @@ class AppDatabase {
     });
   }
 
+  Future<Payment> recordExternalPayment(
+    Fee fee, {
+    required String method,
+    required String accountNumber,
+    required String reference,
+    required String gateway,
+    String? status,
+  }) async {
+    final maskedAccount = accountNumber.length > 4
+        ? '***${accountNumber.substring(accountNumber.length - 4)}'
+        : accountNumber;
+
+    return db.transaction((txn) async {
+      await txn.update(
+        'fees',
+        {'status': 'paid'},
+        where: 'id = ?',
+        whereArgs: [fee.id],
+      );
+      final paymentId = await txn.insert('payments', {
+        'fee_id': fee.id,
+        'student_id': fee.studentId,
+        'amount': fee.amount,
+        'method':
+            '$gateway - $method - $maskedAccount${status != null ? ' - $status' : ''}',
+        'reference': reference,
+        'paid_at': DateTime.now().toIso8601String(),
+      });
+      final row = (await txn.query(
+        'payments',
+        where: 'id = ?',
+        whereArgs: [paymentId],
+      )).first;
+      return Payment.fromMap(row);
+    });
+  }
+
   Future<Payment> simulatePayment(
     Fee fee, {
     required String method,

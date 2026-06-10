@@ -1,9 +1,8 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 import '../../database/app_database.dart';
 import '../../models/fee.dart';
+import '../../services/payment_api_service.dart';
 import '../../widgets/common_widgets.dart';
 
 class PaymentSimulationSheet extends StatefulWidget {
@@ -21,12 +20,16 @@ class PaymentSimulationSheet extends StatefulWidget {
 }
 
 class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
-  int _step = 1; // 1: Method/Number, 2: OTP, 3: Success
+  int _step = 1;
   String _method = 'Mobile Money';
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  String? _generatedOtp;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +46,7 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
       ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child: _step == 1
-            ? _buildStep1()
-            : _step == 2
-            ? _buildStep2()
-            : _buildStep3(),
+        child: _step == 1 ? _buildStep1() : _buildStep3(),
       ),
     );
   }
@@ -91,7 +90,7 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
         ),
         const SizedBox(height: 24),
         FilledButton(
-          onPressed: _sendOtp,
+          onPressed: _isLoading ? null : _processPayment,
           child: _isLoading
               ? const SizedBox(
                   height: 20,
@@ -101,68 +100,7 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
                     strokeWidth: 2,
                   ),
                 )
-              : const Text('Envoyer le code de confirmation'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep2() {
-    return Column(
-      key: const ValueKey(2),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Icon(
-          Icons.mark_email_read_outlined,
-          size: 64,
-          color: AppColors.accent,
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Vérification',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Un code de confirmation a été envoyé au ${_phoneController.text}.\n(Simulation: Votre code est $_generatedOtp)',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 24),
-        TextFormField(
-          controller: _otpController,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 24,
-            letterSpacing: 8,
-            fontWeight: FontWeight.bold,
-          ),
-          decoration: const InputDecoration(
-            hintText: '000000',
-            counterText: '',
-          ),
-          maxLength: 6,
-        ),
-        const SizedBox(height: 24),
-        FilledButton(
-          onPressed: _verifyAndPay,
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text('Confirmer le paiement'),
-        ),
-        TextButton(
-          onPressed: () => setState(() => _step = 1),
-          child: const Text('Modifier le numéro'),
+              : const Text('Payer maintenant'),
         ),
       ],
     );
@@ -183,7 +121,7 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Votre paiement a été validé avec succès. Vous pouvez maintenant télécharger votre reçu.',
+          'Votre paiement a été transmis à Shwary et enregistré dans l’application.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey.shade600),
         ),
@@ -196,46 +134,47 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
     );
   }
 
-  void _sendOtp() async {
-    if (_phoneController.text.length < 8) {
+  Future<void> _processPayment() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez entrer un numéro valide')),
+        const SnackBar(
+          content: Text('Veuillez entrer un numéro de téléphone valide'),
+        ),
       );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-
-    _generatedOtp = (100000 + Random().nextInt(900000)).toString();
-
-    setState(() {
-      _isLoading = false;
-      _step = 2;
-    });
-  }
-
-  void _verifyAndPay() async {
-    if (_otpController.text != _generatedOtp) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Code incorrect')));
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      await widget.database.simulatePayment(
+      final paymentApi = PaymentApiService();
+      final result = await paymentApi.pay(
+        amount: widget.fee.amount,
+        phoneNumber: phone,
+      );
+
+      if (!result.success) {
+        throw Exception(
+          result.message ?? 'Le paiement n’a pas été accepté par Shwary.',
+        );
+      }
+
+      await widget.database.recordExternalPayment(
         widget.fee,
         method: _method,
-        accountNumber: _phoneController.text,
+        accountNumber: phone,
+        reference:
+            result.transactionId ??
+            'SHWARY-${DateTime.now().millisecondsSinceEpoch}',
+        gateway: 'Shwary',
+        status: result.status,
       );
 
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _step = 3;
+        _step = 2;
       });
     } catch (e) {
       if (!mounted) return;

@@ -1,0 +1,227 @@
+INTEGRATION DE L'API MARCHAND SHWARY
+====================================
+
+Projet concerne:
+F:\student_recourse\student_recourse
+
+Objectif:
+Permettre a l'application etudiant de lancer un paiement Mobile Money pour un recours publie depuis le logiciel admin.
+
+
+1. Fichiers principaux utilises
+-------------------------------
+
+Configuration marchand Shwary:
+lib/student_app/config/shwary_config.dart
+
+Ce fichier contient:
+- merchantId: identifiant marchand Shwary.
+- merchantKey: cle marchand Shwary.
+- sandbox: permet de choisir entre test et production.
+- countryCode: DRC.
+- currency: CDF.
+- baseUrl: https://api.shwary.com/api/v1/merchants
+- callbackUrl: URL appelee par Shwary apres changement de statut du paiement.
+
+Service Shwary:
+lib/student_app/data/shwary_service.dart
+
+Ce fichier prepare et envoie la requete HTTP vers Shwary.
+
+Service applicatif paiement:
+lib/student_app/services/payement_api_service.dart
+
+Ce fichier sert d'intermediaire entre l'ecran etudiant et le service Shwary.
+
+Ecran etudiant:
+lib/student_app/screens/student_home_page.dart
+
+Cet ecran appelle le paiement quand l'etudiant clique sur "Payer le recours".
+
+
+2. Chemin API marchand utilise
+------------------------------
+
+Base URL:
+https://api.shwary.com/api/v1/merchants
+
+API Url =
+      'https://88bdf6bbfc5c93.lhr.life/PROJETSTBAC3/public';
+
+En production:
+POST https://api.shwary.com/api/v1/merchants/payment/DRC
+
+En sandbox:
+POST https://api.shwary.com/api/v1/merchants/payment/sandbox/DRC
+
+Le choix se fait avec:
+ShwaryConfig.sandbox
+
+Si sandbox = false:
+le paiement part en production.
+
+Si sandbox = true:
+le paiement part en mode test.
+
+
+3. Headers envoyes a Shwary
+---------------------------
+
+Dans shwary_service.dart, les headers sont:
+
+x-merchant-id: identifiant marchand
+x-merchant-key: cle marchand
+Content-Type: application/json
+
+Important:
+La cle marchand existe dans le fichier de configuration, mais elle ne doit pas etre partagee publiquement.
+
+
+3 bis. Identifiants marchand configures
+---------------------------------------
+
+Les identifiants marchand sont configures dans:
+lib/student_app/config/shwary_config.dart
+
+Identifiant marchand:
+991492ac-f6de-48d3-9bd5-d89e942c3caa
+
+Cle marchand:
+shwary_d0fc8728-5274-4716-be97-************
+
+Remarque importante pour la presentation:
+La cle marchand complete est une donnee sensible. Elle est bien utilisee dans le code de configuration de l'application, mais dans un document partage avec le jury ou d'autres personnes, il est preferable de la masquer partiellement pour eviter qu'une autre personne puisse utiliser le compte marchand.
+
+Dans le code, cette cle est envoyee a Shwary dans le header:
+x-merchant-key
+
+
+4. Corps de la requete envoye a Shwary
+--------------------------------------
+
+Le body JSON envoye a Shwary contient:
+
+{
+  "amount": montant_en_cdf,
+  "clientPhoneNumber": numero_mobile_money,
+  "callbackUrl": url_callback
+}
+
+Exemple:
+
+{
+  "amount": 23000,
+  "clientPhoneNumber": "+2439******755",
+  "callbackUrl": "https://.../api/payment/callback"
+}
+
+Le montant vient de la table recours, colonne montant.
+Si la base contient 23000.00, l'application convertit et envoie 23000.
+
+
+5. Normalisation du numero
+--------------------------
+
+Le numero saisi par l'etudiant est normalise en format RDC international.
+
+Exemples:
+0991234567 devient +243991234567
+243991234567 devient +243991234567
++243991234567 reste +243991234567
+
+Une validation a ete ajoutee pour accepter uniquement un numero RDC de ce format:
++243 suivi de 9 chiffres.
+
+
+6. Gestion du montant
+---------------------
+
+Dans shwary_service.dart:
+le montant est arrondi avant l'envoi:
+
+amount.round()
+
+Donc un montant Supabase comme 23000.00 est envoye a Shwary comme 23000 CDF.
+
+Une validation refuse aussi:
+- montant vide
+- montant non numerique
+- montant inferieur au minimum Shwary configure
+
+Le minimum configure est:
+2900 CDF
+
+
+7. Verification du paiement
+---------------------------
+
+Apres l'initialisation du paiement, l'application peut verifier la transaction avec:
+
+GET https://api.shwary.com/api/v1/merchants/transactions/{transactionId}
+
+Le code se trouve aussi dans:
+lib/student_app/data/shwary_service.dart
+
+La transaction est consideree valide si le statut retourne par Shwary est:
+- COMPLETED
+- SUCCESS
+- ACCEPTED
+- ou message = success
+
+
+8. Enregistrement dans Supabase
+-------------------------------
+
+Quand le paiement est confirme, l'application enregistre le paiement dans:
+table paiements_recours
+
+Champs principaux:
+- etudiant_id
+- recours_id
+- montant_paye
+- mode_paiement
+- reference_paiement
+- est_valide
+- date_paiement
+
+Le code est dans:
+lib/student_app/data/student_portal_repository.dart
+
+
+9. Diagnostic ajoute
+--------------------
+
+Pour faciliter le debug, le service Shwary affiche maintenant dans l'erreur:
+- le status code Shwary
+- la reponse brute Shwary
+- le montant reel envoye
+- le telephone masque
+
+Exemple:
+Montant envoye: 23000 CDF. Telephone: +2439****755.
+
+Cela a permis de confirmer que le probleme de 422 en production ne venait pas d'une conversion de 23000.00 vers 2.3.
+
+
+10. Conclusion
+--------------
+
+L'integration Shwary fonctionne ainsi:
+
+Bouton "Payer le recours"
+-> PaymentApiService
+-> ShwaryService
+-> POST /payment/DRC ou /payment/sandbox/DRC
+-> Shwary lance la demande Mobile Money
+-> l'application verifie la transaction
+-> si le paiement est confirme, l'application enregistre le paiement dans Supabase.
+
+Le mode sandbox a permis de verifier que l'integration API est correcte.
+Le mode production utilise les vraies cles marchand et declenche les vrais paiements Mobile Money.
+
+
+
+
+
+SHWARY_MERCHANT_ID=991492ac-f6de-48d3-9bd5-d89e942c3c
+SHWARY_MERCHANT_KEY=shwary_acc92ffb-d728-4f89-9f64-d7661df576a6
