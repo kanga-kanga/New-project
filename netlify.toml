@@ -1,5 +1,5 @@
 [build]
-  command = "flutter build web --release"
+
   publish = "build/web"
   functions = "netlify/functions"
 
