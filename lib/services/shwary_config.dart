@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ShwaryConfig {
   static const String gateway = 'shwary';
   static const String merchantId = '991492ac-f6de-48d3-9bd5-d89e942c3caa';
@@ -15,15 +17,19 @@ class ShwaryConfig {
   static const String notifyUrl = '$appUrl/payment/notify';
   static const String callbackUrl = '$appUrl/api/payment/callback';
   static const int minimumAmountCdf = 2900;
+  static const String webApiBase = '/api/shwary';
 
   static String paymentEndpoint({bool sandboxMode = sandbox}) {
+    if (kIsWeb) {
+      return '$webApiBase/payment';
+    }
     return sandboxMode
         ? '$baseUrl/payment/sandbox/$countryCode'
         : '$baseUrl/payment/$countryCode';
   }
 
   static String transactionsEndpoint({bool sandboxMode = sandbox}) =>
-      '$baseUrl/transactions';
+      kIsWeb ? '$webApiBase/transactions' : '$baseUrl/transactions';
 
   static bool get isConfigured =>
       merchantId.isNotEmpty && merchantKey.isNotEmpty;

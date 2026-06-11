@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'shwary_config.dart';
@@ -166,11 +167,17 @@ class ShwaryService {
     );
   }
 
-  static Map<String, String> get _headers => {
-    'x-merchant-id': ShwaryConfig.merchantId,
-    'x-merchant-key': ShwaryConfig.merchantKey,
-    'Content-Type': 'application/json',
-  };
+  static Map<String, String> get _headers {
+    if (kIsWeb) {
+      return {'Content-Type': 'application/json'};
+    }
+
+    return {
+      'x-merchant-id': ShwaryConfig.merchantId,
+      'x-merchant-key': ShwaryConfig.merchantKey,
+      'Content-Type': 'application/json',
+    };
+  }
 
   static String _normalizeDrcPhoneNumber(String value) {
     var cleaned = value.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');

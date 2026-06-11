@@ -1,0 +1,9 @@
+[build]
+  publish = "build/web"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/shwary/*"
+  to = "/.netlify/functions/shwary/:splat"
+  status = 200
+  force = true
