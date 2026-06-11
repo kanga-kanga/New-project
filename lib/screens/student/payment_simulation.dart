@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/app_database.dart';
 import '../../models/fee.dart';
 import '../../services/payment_api_service.dart';
+import '../../services/shwary_service.dart';
 import '../../widgets/common_widgets.dart';
 
 class PaymentSimulationSheet extends StatefulWidget {
@@ -21,7 +22,6 @@ class PaymentSimulationSheet extends StatefulWidget {
 
 class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
   int _step = 1;
-  String _method = 'Mobile Money';
   final _phoneController = TextEditingController();
   bool _isLoading = false;
 
@@ -67,25 +67,32 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
           style: TextStyle(color: Colors.grey.shade600),
         ),
         const SizedBox(height: 24),
-        DropdownButtonFormField<String>(
-          initialValue: _method,
-          decoration: const InputDecoration(labelText: 'Moyen de paiement'),
-          items: const [
-            'Mobile Money',
-            'Carte Bancaire',
-            'Virement',
-          ].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-          onChanged: (v) => setState(() => _method = v!),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.phone_android, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Paiement Mobile Money uniquement. Aucun autre mode n’est proposé.',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         TextFormField(
           controller: _phoneController,
           keyboardType: TextInputType.phone,
-          decoration: InputDecoration(
-            labelText: _method == 'Carte Bancaire'
-                ? 'Numéro de carte'
-                : 'Numéro de téléphone',
-            prefixIcon: const Icon(Icons.phone_android),
+          decoration: const InputDecoration(
+            labelText: 'Numéro de téléphone Mobile Money',
+            prefixIcon: Icon(Icons.phone_android),
           ),
         ),
         const SizedBox(height: 24),
@@ -115,13 +122,13 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
         const Icon(Icons.check_circle, size: 80, color: AppColors.success),
         const SizedBox(height: 16),
         const Text(
-          'Paiement Réussi !',
+          'Paiement initié !',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
-          'Votre paiement a été transmis à Shwary et enregistré dans l’application.',
+          'Votre paiement a été transmis à Shwary et est en attente de validation.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey.shade600),
         ),
@@ -145,13 +152,24 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
       return;
     }
 
+    final normalizedPhone = ShwaryService.normalizePhoneNumber(phone);
+    debugPrint('[Shwary] Début du paiement pour $normalizedPhone');
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Paiement en cours…')));
     setState(() => _isLoading = true);
 
     try {
       final paymentApi = PaymentApiService();
       final result = await paymentApi.pay(
         amount: widget.fee.amount,
-        phoneNumber: phone,
+        phoneNumber: normalizedPhone,
+      );
+
+      debugPrint(
+        '[Shwary] Résultat: success=${result.success}, status=${result.status}, transaction=${result.transactionId}, message=${result.message}',
       );
 
       if (!result.success) {
@@ -162,8 +180,8 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
 
       await widget.database.recordExternalPayment(
         widget.fee,
-        method: _method,
-        accountNumber: phone,
+        method: 'Mobile Money',
+        accountNumber: normalizedPhone,
         reference:
             result.transactionId ??
             'SHWARY-${DateTime.now().millisecondsSinceEpoch}',
@@ -176,12 +194,21 @@ class _PaymentSimulationSheetState extends State<PaymentSimulationSheet> {
         _isLoading = false;
         _step = 2;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Paiement initié avec succès. Validation en cours.'),
+        ),
+      );
     } catch (e) {
+      debugPrint('[Shwary] Erreur: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur Shwary détaillée: $e'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     }
   }
 }

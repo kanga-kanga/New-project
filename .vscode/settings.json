@@ -1,0 +1,6 @@
+{
+    "dart.flutterRunAdditionalArgs": [
+        "-d",
+        "chrome"
+    ]
+}

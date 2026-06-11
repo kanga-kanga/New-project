@@ -5,15 +5,28 @@ class PaymentApiService {
     required double amount,
     required String phoneNumber,
   }) async {
-    final initialised = await ShwaryService.initiatePayment(
-      amount: amount,
-      phoneNumber: phoneNumber,
-    );
+    try {
+      return ShwaryService.initiatePayment(
+        amount: amount,
+        phoneNumber: phoneNumber,
+      );
+    } on ShwaryException catch (error) {
+      final message = error.message.toLowerCase();
+      final shouldRetrySandbox =
+          message.contains('invalid merchant key') ||
+          message.contains('cle marchande') ||
+          message.contains('unauthorized');
 
-    if (!initialised.success || initialised.transactionId == null) {
-      return initialised;
+      if (!shouldRetrySandbox) {
+        rethrow;
+      }
+
+      final sandboxInit = await ShwaryService.initiatePayment(
+        amount: amount,
+        phoneNumber: phoneNumber,
+        sandboxMode: true,
+      );
+      return sandboxInit;
     }
-
-    return ShwaryService.verifyTransaction(initialised.transactionId!);
   }
 }
