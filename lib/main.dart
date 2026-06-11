@@ -20,6 +20,7 @@ Future<void> main() async {
   runApp(AcademicFeesApp(database: db));
 }
 
+// c'est bon
 class AcademicFeesApp extends StatefulWidget {
   final AppDatabase database;
   const AcademicFeesApp({super.key, required this.database});
