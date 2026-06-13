@@ -115,7 +115,7 @@ class _StudentHomeState extends State<StudentHome> {
                     leading: const Icon(Icons.badge_outlined),
                     title: Text(widget.user.promotionLabel),
                     subtitle: Text(
-                      '${widget.user.departmentLabel} - Sexe ${widget.user.genderLabel}',
+                      '${widget.user.departmentLabel} - ${widget.user.filiereLabel} - Sexe ${widget.user.genderLabel}',
                     ),
                   ),
                 ),

@@ -28,6 +28,7 @@ class User {
     required this.registrationCompleted,
     this.gender,
     this.matricule,
+    this.department,
     this.program,
     this.level,
   });
@@ -40,6 +41,7 @@ class User {
   final bool registrationCompleted;
   final String? gender;
   final String? matricule;
+  final String? department;
   final String? program;
   final String? level;
 
@@ -56,6 +58,15 @@ class User {
   }
 
   String get departmentLabel {
+    final value = department?.trim() ?? '';
+    if (value.isNotEmpty) {
+      return value;
+    }
+    final fallback = program?.trim() ?? '';
+    return fallback.isEmpty ? 'Departement non defini' : fallback;
+  }
+
+  String get filiereLabel {
     final value = program?.trim() ?? '';
     return value.isEmpty ? 'Filiere non definie' : value;
   }
@@ -85,6 +96,7 @@ class User {
           ((map['registration_completed'] as int?) ?? 1) == 1,
       gender: map['gender'] as String?,
       matricule: map['matricule'] as String?,
+      department: map['department'] as String?,
       program: map['program'] as String?,
       level: map['level'] as String?,
     );
@@ -100,6 +112,7 @@ class User {
       'registration_completed': registrationCompleted ? 1 : 0,
       'gender': gender,
       'matricule': matricule,
+      'department': department,
       'program': program,
       'level': level,
     };

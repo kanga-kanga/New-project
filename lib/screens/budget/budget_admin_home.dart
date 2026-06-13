@@ -86,10 +86,10 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Nouvelle filiere'),
+          title: const Text('Nouveau departement'),
           content: TextField(
             controller: _departmentController,
-            decoration: const InputDecoration(labelText: 'Nom de la filiere'),
+            decoration: const InputDecoration(labelText: 'Nom du departement'),
             autofocus: true,
           ),
           actions: [
@@ -111,7 +111,7 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
                   }
                   _refresh();
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Filiere ajoutee')),
+                    const SnackBar(content: Text('Departement ajoute')),
                   );
                 } catch (e) {
                   if (!mounted) return;
@@ -255,9 +255,7 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
                     message: 'Les paiements apparaissent ici avec leur motif et l heure exacte.',
                   )
                 else
-                  ...data.payments.map(
-                    (row) => _PaymentTableTile(row: row),
-                  ),
+                  _RecentPaymentsTable(rows: data.payments),
                 const SizedBox(height: 24),
                 SectionTitle(
                   title: 'Frais modifiables',
@@ -328,7 +326,7 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Tableaux de suivi des frais, filieres et promotions par etudiant.',
+                    'Tableaux de suivi des frais, departements, filieres et promotions par etudiant.',
                     style: TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -392,7 +390,7 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Filieres',
+                  'Departements',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -408,7 +406,7 @@ class _BudgetAdminHomeState extends State<BudgetAdminHome> {
             ),
             const SizedBox(height: 12),
             if (departments.isEmpty)
-              const Text('Aucune filiere creee pour le moment.')
+              const Text('Aucun departement cree pour le moment.')
             else
               Wrap(
                 spacing: 8,
@@ -491,6 +489,7 @@ class _PromotionLedgerCard extends StatelessWidget {
               child: DataTable(
                 columns: const [
                   DataColumn(label: Text('Etudiant')),
+                  DataColumn(label: Text('Departement')),
                   DataColumn(label: Text('Filiere')),
                   DataColumn(label: Text('Attendu')),
                   DataColumn(label: Text('Paye')),
@@ -507,6 +506,7 @@ class _PromotionLedgerCard extends StatelessWidget {
                     cells: [
                       DataCell(Text(ledger.student.fullName)),
                       DataCell(Text(ledger.student.departmentLabel)),
+                      DataCell(Text(ledger.student.filiereLabel)),
                       DataCell(Text(formatMoney(ledger.totalFees))),
                       DataCell(Text(formatMoney(ledger.totalPaid))),
                       DataCell(Text(formatMoney(ledger.balance))),
@@ -531,74 +531,46 @@ class _PromotionLedgerCard extends StatelessWidget {
   }
 }
 
-class _PaymentTableTile extends StatelessWidget {
-  const _PaymentTableTile({required this.row});
+class _RecentPaymentsTable extends StatelessWidget {
+  const _RecentPaymentsTable({required this.rows});
 
-  final PaymentRow row;
+  final List<PaymentRow> rows;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppColors.success.withValues(alpha: 0.12),
-                  child: const Icon(Icons.receipt_long, color: AppColors.success),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        row.student.fullName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        '${row.student.promotionLabel} - ${row.student.departmentLabel}',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Etudiant')),
+              DataColumn(label: Text('Departement')),
+              DataColumn(label: Text('Promotion')),
+              DataColumn(label: Text('Filiere')),
+              DataColumn(label: Text('Motif')),
+              DataColumn(label: Text('Methode')),
+              DataColumn(label: Text('Montant')),
+              DataColumn(label: Text('Date/heure')),
+            ],
+            rows: rows
+                .map(
+                  (row) => DataRow(
+                    cells: [
+                      DataCell(Text(row.student.fullName)),
+                      DataCell(Text(row.student.departmentLabel)),
+                      DataCell(Text(row.student.promotionLabel)),
+                      DataCell(Text(row.student.filiereLabel)),
+                      DataCell(Text(row.fee.title)),
+                      DataCell(Text(row.payment.method)),
+                      DataCell(Text(formatMoney(row.payment.amount))),
+                      DataCell(Text(formatDateTime(row.payment.paidAt))),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formatMoney(row.payment.amount),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    Text(
-                      formatDateTime(row.payment.paidAt),
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _Pill(label: 'Motif', value: row.fee.title, color: AppColors.accent),
-                _Pill(label: 'Methode', value: row.payment.method, color: AppColors.primary),
-                _Pill(label: 'Ref', value: row.payment.reference, color: AppColors.secondary),
-              ],
-            ),
-          ],
+                )
+                .toList(),
+          ),
         ),
       ),
     );
@@ -635,7 +607,7 @@ class _FeeManagementTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
-          '${row.student.fullName}\n${row.student.promotionLabel} - ${row.student.departmentLabel}\nEcheance: ${formatDate(row.fee.dueDate)}',
+          '${row.student.fullName}\n${row.student.departmentLabel} - ${row.student.promotionLabel} - ${row.student.filiereLabel}\nEcheance: ${formatDate(row.fee.dueDate)}',
         ),
         isThreeLine: true,
         trailing: PopupMenuButton<String>(

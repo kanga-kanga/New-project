@@ -149,7 +149,7 @@ class _AddFeeScreenState extends State<AddFeeScreen> {
                     leading: const Icon(Icons.person_outline),
                     title: Text(existingFee.student.fullName),
                     subtitle: Text(
-                      '${existingFee.student.promotionLabel} - ${existingFee.student.departmentLabel}',
+                      '${existingFee.student.promotionLabel} - ${existingFee.student.departmentLabel} - ${existingFee.student.filiereLabel}',
                     ),
                   ),
                 ),

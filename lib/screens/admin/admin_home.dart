@@ -81,10 +81,10 @@ class _AdministrationHomeState extends State<AdministrationHome> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Nouvelle filiere'),
+          title: const Text('Nouveau departement'),
           content: TextField(
             controller: _departmentController,
-            decoration: const InputDecoration(labelText: 'Nom de la filiere'),
+            decoration: const InputDecoration(labelText: 'Nom du departement'),
             autofocus: true,
           ),
           actions: [
@@ -106,7 +106,7 @@ class _AdministrationHomeState extends State<AdministrationHome> {
                   }
                   _refresh();
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Filiere ajoutee')),
+                    const SnackBar(content: Text('Departement ajoute')),
                   );
                 } catch (e) {
                   if (!mounted) return;
@@ -242,7 +242,7 @@ class _AdministrationHomeState extends State<AdministrationHome> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Filieres',
+                  'Departements',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -258,7 +258,7 @@ class _AdministrationHomeState extends State<AdministrationHome> {
             ),
             const SizedBox(height: 12),
             if (departments.isEmpty)
-              const Text('Aucune filiere creee pour le moment.')
+              const Text('Aucun departement cree pour le moment.')
             else
               Wrap(
                 spacing: 8,
@@ -364,7 +364,7 @@ class _StudentLedgerTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
-          '${ledger.student.promotionLabel} - ${ledger.student.departmentLabel}',
+          '${ledger.student.departmentLabel} - ${ledger.student.promotionLabel} - ${ledger.student.filiereLabel}',
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -414,8 +414,8 @@ class _RegistrationTile extends StatelessWidget {
         ),
         subtitle: Text(
           isValidated
-              ? '${student.email} - ${student.promotionLabel} - ${student.departmentLabel} - ${student.genderLabel}'
-              : 'En attente de validation - ${student.promotionLabel} - ${student.departmentLabel} - ${student.genderLabel}',
+              ? '${student.email} - ${student.departmentLabel} - ${student.promotionLabel} - ${student.filiereLabel} - ${student.genderLabel}'
+              : 'En attente de validation - ${student.departmentLabel} - ${student.promotionLabel} - ${student.filiereLabel} - ${student.genderLabel}',
         ),
         trailing: Text(
           isValidated ? 'Valide' : 'En attente',

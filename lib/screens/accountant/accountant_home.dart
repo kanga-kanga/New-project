@@ -136,10 +136,10 @@ class _AccountantHomeState extends State<AccountantHome>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Nouvelle filiere'),
+          title: const Text('Nouveau departement'),
           content: TextField(
             controller: _departmentController,
-            decoration: const InputDecoration(labelText: 'Nom de la filiere'),
+            decoration: const InputDecoration(labelText: 'Nom du departement'),
             autofocus: true,
           ),
           actions: [
@@ -161,7 +161,7 @@ class _AccountantHomeState extends State<AccountantHome>
                   }
                   _refresh();
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Filiere ajoutee')),
+                    const SnackBar(content: Text('Departement ajoute')),
                   );
                 } catch (e) {
                   if (!mounted) return;
@@ -185,7 +185,7 @@ class _AccountantHomeState extends State<AccountantHome>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Espace Trésorerie', style: TextStyle(fontSize: 14)),
+            const Text('Espace Tresorerie', style: TextStyle(fontSize: 14)),
             Text(
               widget.user.fullName,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -197,7 +197,7 @@ class _AccountantHomeState extends State<AccountantHome>
           tabs: const [
             Tab(text: 'Paiements', icon: Icon(Icons.receipt_long)),
             Tab(text: 'Frais', icon: Icon(Icons.account_balance)),
-            Tab(text: 'Filieres', icon: Icon(Icons.account_tree_outlined)),
+            Tab(text: 'Departements', icon: Icon(Icons.account_tree_outlined)),
           ],
         ),
         actions: [
@@ -334,27 +334,27 @@ class _AccountantHomeState extends State<AccountantHome>
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.logo_dev_outlined),
-                        title: const Text('Filieres et promotions'),
+                        title: const Text('Departements et promotions'),
                         subtitle: const Text(
-                          'Les filieres sont ajoutees ici et les promotions sont affichees automatiquement depuis les etudiants inscrits.',
+                          'Les departements sont ajoutees ici et les promotions sont affichees automatiquement depuis les etudiants inscrits.',
                         ),
                         trailing: FilledButton.icon(
                           onPressed: _showDepartmentDialog,
                           icon: const Icon(Icons.add),
-                          label: const Text('Ajouter filiere'),
+                          label: const Text('Ajouter departement'),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     SectionTitle(
-                      title: 'Filieres',
-                      trailing: '${data.departments.length} filieres',
+                      title: 'Departements',
+                      trailing: '${data.departments.length} departements',
                     ),
                     if (data.departments.isEmpty)
                       const EmptyState(
                         icon: Icons.account_tree_outlined,
-                        title: 'Aucune filiere',
-                        message: 'Ajoutez une filiere pour la voir dans les tableaux de paiement.',
+                        title: 'Aucun departement',
+                        message: 'Ajoutez un departement pour le voir dans les tableaux de paiement.',
                       )
                     else
                       _DepartmentTable(departments: data.departments),
@@ -499,6 +499,7 @@ class _PromotionPaymentCard extends StatelessWidget {
               child: DataTable(
                 columns: const [
                   DataColumn(label: Text('Etudiant')),
+                  DataColumn(label: Text('Departement')),
                   DataColumn(label: Text('Filiere')),
                   DataColumn(label: Text('Motif')),
                   DataColumn(label: Text('Montant')),
@@ -510,6 +511,7 @@ class _PromotionPaymentCard extends StatelessWidget {
                         cells: [
                           DataCell(Text(row.student.fullName)),
                           DataCell(Text(row.student.departmentLabel)),
+                          DataCell(Text(row.student.filiereLabel)),
                           DataCell(Text(row.fee.title)),
                           DataCell(Text(formatMoney(row.payment.amount))),
                           DataCell(Text(formatDateTime(row.payment.paidAt))),
@@ -545,6 +547,8 @@ class _PromotionTable extends StatelessWidget {
           child: DataTable(
             columns: const [
               DataColumn(label: Text('Promotion')),
+              DataColumn(label: Text('Departement')),
+              DataColumn(label: Text('Filiere')),
               DataColumn(label: Text('Etudiants')),
               DataColumn(label: Text('En ordre')),
               DataColumn(label: Text('Non en ordre')),
@@ -555,9 +559,13 @@ class _PromotionTable extends StatelessWidget {
               final inOrder = rows.where((ledger) => ledger.isInOrder).length;
               final pending = rows.length - inOrder;
               final totalPaid = rows.fold<double>(0, (sum, row) => sum + row.totalPaid);
+              final departments = rows.map((row) => row.student.departmentLabel).toSet().join(', ');
+              final filieres = rows.map((row) => row.student.filiereLabel).toSet().join(', ');
               return DataRow(
                 cells: [
                   DataCell(Text(promotion)),
+                  DataCell(Text(departments.isEmpty ? '-' : departments)),
+                  DataCell(Text(filieres.isEmpty ? '-' : filieres)),
                   DataCell(Text('${rows.length}')),
                   DataCell(Text('$inOrder')),
                   DataCell(Text('$pending')),
@@ -586,7 +594,7 @@ class _DepartmentTable extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             columns: const [
-              DataColumn(label: Text('Filiere')),
+              DataColumn(label: Text('Departement')),
             ],
             rows: departments
                 .map(
@@ -632,7 +640,7 @@ class _FeeManagementTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
-          '${row.student.fullName}\n${row.student.promotionLabel} - ${row.student.departmentLabel}\nEcheance: ${formatDate(row.fee.dueDate)}',
+          '${row.student.fullName}\n${row.student.departmentLabel} - ${row.student.promotionLabel} - ${row.student.filiereLabel}\nEcheance: ${formatDate(row.fee.dueDate)}',
         ),
         isThreeLine: true,
         trailing: PopupMenuButton<String>(

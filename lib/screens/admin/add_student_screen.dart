@@ -21,9 +21,11 @@ class AddStudentScreen extends StatefulWidget {
 class _AddStudentScreenState extends State<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
+  final _programController = TextEditingController();
   bool _isLoading = false;
   String? _selectedPromotion;
   String? _selectedDepartment;
+  String? _selectedProgram;
   String? _selectedGender;
 
   final List<String> _promotions = const [
@@ -37,6 +39,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   @override
   void dispose() {
     _fullNameController.dispose();
+    _programController.dispose();
     super.dispose();
   }
 
@@ -44,13 +47,20 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    if (_selectedDepartment == null || _selectedProgram == null || _selectedProgram!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez selectionner un departement et une filiere')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
       await widget.database.createStudent(
         fullName: _fullNameController.text,
+        department: _selectedDepartment!,
         level: _selectedPromotion!,
-        program: _selectedDepartment!,
+        program: _selectedProgram!.trim(),
         gender: _selectedGender!,
       );
       if (!mounted) return;
@@ -73,6 +83,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   @override
   Widget build(BuildContext context) {
     final departments = widget.departments;
+    final programs = _programsForDepartment(_selectedDepartment);
+    final hasProgramChoices = programs.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nouvel etudiant')),
@@ -84,7 +96,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'L administration cree une preinscription avec le nom complet, la promotion, la filiere et le sexe. L etudiant finalisera ensuite son compte depuis S inscrire.',
+                'L administration cree une preinscription avec le nom complet, le departement, la filiere, la promotion et le sexe. L etudiant finalisera ensuite son compte depuis S inscrire.',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 20),
@@ -119,8 +131,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _selectedDepartment,
                 decoration: const InputDecoration(
-                  labelText: 'Filiere',
-                  prefixIcon: Icon(Icons.account_tree_outlined),
+                  labelText: 'Departement',
+                  prefixIcon: Icon(Icons.apartment_outlined),
                 ),
                 items: departments
                     .map(
@@ -130,10 +142,46 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                       ),
                     )
                     .toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedDepartment = value),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedDepartment = value;
+                    _selectedProgram = null;
+                    _programController.clear();
+                  });
+                },
                 validator: (value) => value == null ? 'Champ requis' : null,
               ),
+              const SizedBox(height: 16),
+              if (hasProgramChoices)
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedProgram,
+                  decoration: const InputDecoration(
+                    labelText: 'Filiere',
+                    prefixIcon: Icon(Icons.account_tree_outlined),
+                  ),
+                  items: programs
+                      .map(
+                        (item) =>
+                            DropdownMenuItem(value: item, child: Text(item)),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedProgram = value),
+                  validator: (value) => value == null ? 'Champ requis' : null,
+                )
+              else
+                TextFormField(
+                  controller: _programController,
+                  decoration: const InputDecoration(
+                    labelText: 'Filiere',
+                    prefixIcon: Icon(Icons.account_tree_outlined),
+                  ),
+                  onChanged: (value) =>
+                      setState(() => _selectedProgram = value),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Champ requis'
+                      : null,
+                ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _selectedGender,
@@ -151,7 +199,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               if (departments.isEmpty) ...[
                 const SizedBox(height: 16),
                 const Text(
-                  'Aucune filiere disponible. Creez d abord une filiere dans l espace admin.',
+                  'Aucun departement disponible. Creez d abord un departement dans l espace admin.',
                   style: TextStyle(color: AppColors.error),
                 ),
               ],
@@ -172,5 +220,31 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         ),
       ),
     );
+  }
+
+  List<String> _programsForDepartment(String? department) {
+    return switch (department) {
+      'Sciences et technologies' => const [
+          'Informatique de gestion',
+          'Genie logiciel',
+          'Reseaux et telecommunications',
+        ],
+      'Sciences economiques et de gestion' => const [
+          'Sciences economiques',
+          'Gestion des ressources humaines',
+          'Comptabilite',
+        ],
+      'Droit et sciences politiques' => const [
+          'Droit',
+          'Sciences politiques',
+          'Relations internationales',
+        ],
+      'Lettres et sciences humaines' => const [
+          'Litterature',
+          'Communication',
+          'Histoire',
+        ],
+      _ => const [],
+    };
   }
 }

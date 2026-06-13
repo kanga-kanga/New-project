@@ -40,8 +40,12 @@ class _DGHomeState extends State<DGHome> {
     final feesByStudent = <int, List<Fee>>{};
     final paymentsByStudent = <int, List<Payment>>{};
     for (final student in students) {
-      feesByStudent[student.id] = await widget.database.feesForStudent(student.id);
-      paymentsByStudent[student.id] = await widget.database.paymentsForStudent(student.id);
+      feesByStudent[student.id] = await widget.database.feesForStudent(
+        student.id,
+      );
+      paymentsByStudent[student.id] = await widget.database.paymentsForStudent(
+        student.id,
+      );
     }
 
     return _DGData(
@@ -88,10 +92,26 @@ class _DGHomeState extends State<DGHome> {
           }
 
           final data = snapshot.data!;
-          final paidCount = data.ledgers.where((ledger) => ledger.isInOrder).length;
+          final paidCount = data.ledgers
+              .where((ledger) => ledger.isInOrder)
+              .length;
           final unpaidCount = data.ledgers.length - paidCount;
-          final totalPaid = data.ledgers.fold<double>(0, (sum, ledger) => sum + ledger.totalPaid);
-          final totalDue = data.ledgers.fold<double>(0, (sum, ledger) => sum + ledger.totalFees);
+          final totalPaid = data.ledgers.fold<double>(
+            0,
+            (sum, ledger) => sum + ledger.totalPaid,
+          );
+          final totalDue = data.ledgers.fold<double>(
+            0,
+            (sum, ledger) => sum + ledger.totalFees,
+          );
+          final departmentStats = _buildCategoryStats(
+            data.ledgers,
+            (ledger) => ledger.student.departmentLabel,
+          );
+          final filiereStats = _buildCategoryStats(
+            data.ledgers,
+            (ledger) => ledger.student.filiereLabel,
+          );
 
           return RefreshIndicator(
             onRefresh: () async => _refresh(),
@@ -144,6 +164,34 @@ class _DGHomeState extends State<DGHome> {
                 ),
                 const SizedBox(height: 24),
                 SectionTitle(
+                  title: 'Statistiques par departement',
+                  trailing: '${departmentStats.length} departements',
+                ),
+                if (departmentStats.isEmpty)
+                  const EmptyState(
+                    icon: Icons.apartment_outlined,
+                    title: 'Aucun departement',
+                    message:
+                        'Les statistiques par departement apparaitront ici.',
+                  )
+                else
+                  _CategoryStatsTable(stats: departmentStats),
+                const SizedBox(height: 24),
+                SectionTitle(
+                  title: 'Statistiques par filiere',
+                  trailing: '${filiereStats.length} filieres',
+                ),
+                if (filiereStats.isEmpty)
+                  const EmptyState(
+                    icon: Icons.account_tree_outlined,
+                    title: 'Aucune filiere',
+                    message:
+                        'Les statistiques par filiere apparaitront ici.',
+                  )
+                else
+                  _CategoryStatsTable(stats: filiereStats),
+                const SizedBox(height: 24),
+                SectionTitle(
                   title: 'Tableaux par promotion',
                   trailing: '${data.promotions.length} promotions',
                 ),
@@ -151,7 +199,8 @@ class _DGHomeState extends State<DGHome> {
                   const EmptyState(
                     icon: Icons.school_outlined,
                     title: 'Aucune promotion',
-                    message: 'Les promotions seront visibles ici quand les etudiants seront enregistres.',
+                    message:
+                        'Les promotions seront visibles ici quand les etudiants seront enregistres.',
                   )
                 else
                   ...data.promotions.map(
@@ -207,10 +256,10 @@ class _DGHomeState extends State<DGHome> {
                     ),
                   ),
                   SizedBox(height: 4),
-                  Text(
-                    'Les paiements sont affiches en vert quand ils sont en ordre, et en rouge sinon.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                  // Text(
+                  //   'Les paiements sont affiches en vert quand ils sont en ordre, et en rouge sinon.',
+                  //   style: TextStyle(color: Colors.grey),
+                  // ),
                 ],
               ),
             ),
@@ -235,6 +284,96 @@ class _DGData {
   final List<String> promotions;
   final Map<int, List<Fee>> feesByStudent;
   final Map<int, List<Payment>> paymentsByStudent;
+}
+
+class _CategoryStat {
+  const _CategoryStat({
+    required this.label,
+    required this.count,
+    required this.inOrder,
+    required this.pending,
+    required this.totalPaid,
+    required this.totalDue,
+  });
+
+  final String label;
+  final int count;
+  final int inOrder;
+  final int pending;
+  final double totalPaid;
+  final double totalDue;
+}
+
+List<_CategoryStat> _buildCategoryStats(
+  List<StudentLedger> ledgers,
+  String Function(StudentLedger ledger) selector,
+) {
+  final grouped = <String, List<StudentLedger>>{};
+  for (final ledger in ledgers) {
+    final key = selector(ledger);
+    grouped.putIfAbsent(key, () => []).add(ledger);
+  }
+
+  final stats = grouped.entries.map((entry) {
+    final rows = entry.value;
+    final inOrder = rows.where((ledger) => ledger.isInOrder).length;
+    final pending = rows.length - inOrder;
+    final totalPaid = rows.fold<double>(0, (sum, row) => sum + row.totalPaid);
+    final totalDue = rows.fold<double>(0, (sum, row) => sum + row.totalFees);
+    return _CategoryStat(
+      label: entry.key,
+      count: rows.length,
+      inOrder: inOrder,
+      pending: pending,
+      totalPaid: totalPaid,
+      totalDue: totalDue,
+    );
+  }).toList();
+
+  stats.sort((a, b) => a.label.compareTo(b.label));
+  return stats;
+}
+
+class _CategoryStatsTable extends StatelessWidget {
+  const _CategoryStatsTable({required this.stats});
+
+  final List<_CategoryStat> stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Libelle')),
+              DataColumn(label: Text('Etudiants')),
+              DataColumn(label: Text('En ordre')),
+              DataColumn(label: Text('En attente')),
+              DataColumn(label: Text('Total attendu')),
+              DataColumn(label: Text('Total percu')),
+            ],
+            rows: stats
+                .map(
+                  (stat) => DataRow(
+                    cells: [
+                      DataCell(Text(stat.label)),
+                      DataCell(Text('${stat.count}')),
+                      DataCell(Text('${stat.inOrder}')),
+                      DataCell(Text('${stat.pending}')),
+                      DataCell(Text(formatMoney(stat.totalDue))),
+                      DataCell(Text(formatMoney(stat.totalPaid))),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PromotionStatusCard extends StatelessWidget {
@@ -291,6 +430,7 @@ class _PromotionStatusCard extends StatelessWidget {
               child: DataTable(
                 columns: const [
                   DataColumn(label: Text('Etudiant')),
+                  DataColumn(label: Text('Departement')),
                   DataColumn(label: Text('Filiere')),
                   DataColumn(label: Text('Motif')),
                   DataColumn(label: Text('Montant')),
@@ -298,8 +438,10 @@ class _PromotionStatusCard extends StatelessWidget {
                 ],
                 rows: ledgers.map((ledger) {
                   final inOrder = ledger.isInOrder;
-                  final fees = feesByStudent[ledger.student.id] ?? const <Fee>[];
-                  final payments = paymentsByStudent[ledger.student.id] ?? const <Payment>[];
+                  final fees =
+                      feesByStudent[ledger.student.id] ?? const <Fee>[];
+                  final payments =
+                      paymentsByStudent[ledger.student.id] ?? const <Payment>[];
                   final motif = _paymentMotif(fees, payments, inOrder);
                   return DataRow(
                     color: MaterialStatePropertyAll(
@@ -310,6 +452,7 @@ class _PromotionStatusCard extends StatelessWidget {
                     cells: [
                       DataCell(Text(ledger.student.fullName)),
                       DataCell(Text(ledger.student.departmentLabel)),
+                      DataCell(Text(ledger.student.filiereLabel)),
                       DataCell(Text(motif)),
                       DataCell(Text(formatMoney(ledger.totalPaid))),
                       DataCell(
@@ -317,7 +460,9 @@ class _PromotionStatusCard extends StatelessWidget {
                           inOrder ? 'Paye' : 'En attente',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: inOrder ? AppColors.success : AppColors.error,
+                            color: inOrder
+                                ? AppColors.success
+                                : AppColors.error,
                           ),
                         ),
                       ),
@@ -337,7 +482,9 @@ class _PromotionStatusCard extends StatelessWidget {
       if (fees.isEmpty) {
         return 'Paiement valide';
       }
-      final match = fees.where((fee) => fee.id == payments.first.feeId).toList();
+      final match = fees
+          .where((fee) => fee.id == payments.first.feeId)
+          .toList();
       return match.isNotEmpty ? match.first.title : fees.first.title;
     }
     if (fees.isEmpty) {

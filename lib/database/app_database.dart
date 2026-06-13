@@ -16,7 +16,7 @@ class AppDatabase {
 
   Future<void> init() async {
     final options = OpenDatabaseOptions(
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await _createSchema(db);
         await _seed(db);
@@ -40,6 +40,12 @@ class AppDatabase {
             )
           ''');
           await _seedDepartments(db);
+        }
+        if (oldVersion < 5) {
+          await db.delete('departments');
+          await _seedDepartments(db);
+          await db.execute('ALTER TABLE users ADD COLUMN department TEXT');
+          await _backfillDepartments(db);
         }
       },
     );
@@ -75,6 +81,7 @@ class AppDatabase {
         registration_completed INTEGER NOT NULL DEFAULT 1,
         gender TEXT,
         matricule TEXT,
+        department TEXT,
         program TEXT,
         level TEXT
       )
@@ -145,6 +152,7 @@ class AppDatabase {
       'registration_completed': 1,
       'gender': 'F',
       'matricule': 'ETU-2026-001',
+      'department': 'Sciences et technologies',
       'program': 'Informatique de gestion',
       'level': 'Licence 2',
     });
@@ -157,6 +165,7 @@ class AppDatabase {
       'registration_completed': 1,
       'gender': 'M',
       'matricule': 'ETU-2026-002',
+      'department': 'Sciences economiques et de gestion',
       'program': 'Sciences economiques',
       'level': 'Licence 3',
     });
@@ -198,10 +207,10 @@ class AppDatabase {
 
   Future<void> _seedDepartments(Database db) async {
     final departments = [
-      'Informatique de gestion',
-      'Sciences economiques',
-      'Droit',
-      'Gestion des ressources humaines',
+      'Sciences et technologies',
+      'Sciences economiques et de gestion',
+      'Droit et sciences politiques',
+      'Lettres et sciences humaines',
     ];
     final now = DateTime.now().toIso8601String();
     for (final name in departments) {
@@ -209,6 +218,31 @@ class AppDatabase {
         'name': name,
         'created_at': now,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  Future<void> _backfillDepartments(Database db) async {
+    final rows = await db.query(
+      'users',
+      where: 'role = ? AND (department IS NULL OR TRIM(department) = \'\')',
+      whereArgs: ['student'],
+    );
+    for (final row in rows) {
+      final program = (row['program'] as String?)?.trim() ?? '';
+      final department = switch (program) {
+        'Informatique de gestion' => 'Sciences et technologies',
+        'Sciences economiques' => 'Sciences economiques et de gestion',
+        'Droit' => 'Droit et sciences politiques',
+        'Gestion des ressources humaines' =>
+          'Sciences economiques et de gestion',
+        _ => 'Sciences et technologies',
+      };
+      await db.update(
+        'users',
+        {'department': department},
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
     }
   }
 
@@ -333,6 +367,7 @@ class AppDatabase {
 
   Future<int> createStudent({
     required String fullName,
+    required String department,
     required String level,
     required String program,
     required String gender,
@@ -346,6 +381,7 @@ class AppDatabase {
       'registration_completed': 0,
       'gender': gender.trim().toUpperCase(),
       'matricule': '',
+      'department': department.trim(),
       'program': program.trim(),
       'level': level.trim(),
     });
@@ -420,6 +456,7 @@ class AppDatabase {
         users.registration_completed,
         users.gender,
         users.matricule,
+        users.department,
         users.program,
         users.level,
         fees.id AS fee_row_id,
@@ -455,6 +492,7 @@ class AppDatabase {
         users.registration_completed,
         users.gender,
         users.matricule,
+        users.department,
         users.program,
         users.level
       FROM fees
@@ -512,6 +550,7 @@ class AppDatabase {
       'registration_completed': row['registration_completed'],
       'gender': row['gender'],
       'matricule': row['matricule'],
+      'department': row['department'],
       'program': row['program'],
       'level': row['level'],
     });
@@ -617,6 +656,7 @@ class AppDatabase {
 
   Future<Payment> recordExternalPayment(
     Fee fee, {
+    required String network,
     required String method,
     required String accountNumber,
     required String reference,
@@ -639,7 +679,7 @@ class AppDatabase {
         'student_id': fee.studentId,
         'amount': fee.amount,
         'method':
-            '$gateway - $method - $maskedAccount${status != null ? ' - $status' : ''}',
+            '$gateway - $network - $method - $maskedAccount${status != null ? ' - $status' : ''}',
         'reference': reference,
         'paid_at': DateTime.now().toIso8601String(),
       });
@@ -654,6 +694,7 @@ class AppDatabase {
 
   Future<Payment> simulatePayment(
     Fee fee, {
+    required String network,
     required String method,
     required String accountNumber,
   }) async {
@@ -674,7 +715,7 @@ class AppDatabase {
         'fee_id': fee.id,
         'student_id': fee.studentId,
         'amount': fee.amount,
-        'method': '$method - $account',
+        'method': '$network - $method - $account',
         'reference': reference,
         'paid_at': DateTime.now().toIso8601String(),
       });
